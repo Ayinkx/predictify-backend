@@ -70,4 +70,23 @@ describe("POST /api/auth/challenge", () => {
     expect(res.status).toBe(400);
     expect(res.body.error.type).toBe("BadRequest");
   }, 10000);
+
+  it("supports ETag and returns 304 on match", async () => {
+    const res = await request(app)
+      .post("/api/auth/challenge")
+      .send({ stellarAddress: "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6" });
+    
+    expect(res.status).toBe(201);
+    expect(res.headers.etag).toBeDefined();
+    
+    const etag = res.headers.etag;
+    
+    const res304 = await request(app)
+      .post("/api/auth/challenge")
+      .set("If-None-Match", etag)
+      .send({ stellarAddress: "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6" });
+      
+    expect(res304.status).toBe(304);
+    expect(res304.body).toEqual({});
+  });
 });
