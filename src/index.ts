@@ -1,5 +1,4 @@
 import express from "express";
-import { featureFlagsRouter } from './routes/admin/featureFlags';
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { v4 as uuidv4 } from "uuid";
@@ -19,7 +18,7 @@ import { usersRouter } from "./routes/users";
 import { usersHealthRouter } from "./routes/users/health";
 import { userPortfolioRouter } from "./routes/users/portfolio";
 import { devicesRouter } from "./routes/devices";
-import { adminFeatureFlagsRouter } from "./routes/admin/feature-flags";
+import { adminFeatureFlagsRouter } from "./routes/admin/featureFlags";
 import { adminUsersRouter } from "./routes/adminUsers";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { createDocsRouter } from "./routes/docs";
@@ -126,7 +125,6 @@ export function createApp(): express.Express {
   app.use("/api/admin/audit", adminAuditRouter);
   app.use("/api/admin/users", adminUsersRouter);
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
-  app.use('/feature-flags', featureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
   app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
