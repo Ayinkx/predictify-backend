@@ -9,8 +9,10 @@ import { createChallenge } from "../services/authChallengeService";
 import { verifyChallengeAndIssueJwt } from "../services/authVerifyService";
 import { RouteErrorFactory } from "../errors";
 import { conditionalGet } from "../middleware/etag";
+import { accessLog } from "../middleware/accessLog";
 
 export const authRouter = Router();
+authRouter.use(accessLog);
 
 const refreshTokenBodySchema = z.object({
   refreshToken: z.string().min(1),
