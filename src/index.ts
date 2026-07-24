@@ -21,6 +21,7 @@ import { userPortfolioRouter } from "./routes/users/portfolio";
 import { devicesRouter } from "./routes/devices";
 import { adminFeatureFlagsRouter } from "./routes/admin/feature-flags";
 import { adminUsersRouter } from "./routes/adminUsers";
+import { adminNotesRouter } from "./routes/admin/users/notes";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { createDocsRouter } from "./routes/docs";
 import { sessionsRouter } from "./routes/me/sessions";
@@ -125,6 +126,7 @@ export function createApp(): express.Express {
   app.use("/api/me/sessions", sessionsRouter);
   app.use("/api/admin/audit", adminAuditRouter);
   app.use("/api/admin/users", adminUsersRouter);
+  app.use("/api/admin/users", adminNotesRouter);
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
   app.use('/feature-flags', featureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
