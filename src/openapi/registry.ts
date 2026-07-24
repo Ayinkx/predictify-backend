@@ -1178,6 +1178,91 @@ registry.registerPath({
   },
 });
 
+// ── /api/predictions ──────────────────────────────────────────────────────────
+
+/**
+ * PredictionRow — the shape returned by GET /api/predictions.
+ * Includes the joined market question and resolution time for display.
+ */
+const PredictionRow = z
+  .object({
+    id: z.string().uuid(),
+    marketId: z.string(),
+    question: z.string(),
+    outcome: z.string(),
+    amount: z.string(),
+    txHash: z.string(),
+    status: PredictionStatus,
+    result: z.string().nullable(),
+    createdAt: z.string().datetime(),
+    resolutionTime: z.string().datetime(),
+  })
+  .openapi("PredictionRow");
+
+const PredictionsListResponse = z
+  .object({
+    data: z.array(PredictionRow),
+    /** Opaque cursor for the next page, or null if this is the last page. */
+    nextCursor: z.string().nullable(),
+  })
+  .openapi("PredictionsListResponse");
+
+/**
+ * GET /api/predictions
+ *
+ * Returns a cursor-paginated list of predictions belonging to the
+ * authenticated user.
+ *
+ * Keyset pagination on (createdAt DESC, id DESC) — stable and efficient
+ * even as new rows are inserted between page loads.
+ *
+ * Filters: marketId, status, outcome (all optional).
+ * Pagination: cursor + limit (default 20, max 100).
+ */
+registry.registerPath({
+  method: "get",
+  path: "/api/predictions",
+  operationId: "listPredictions",
+  tags: ["Predictions"],
+  summary: "List the authenticated user\u2019s predictions",
+  description:
+    "Returns a cursor-paginated list of predictions placed by the caller. " +
+    "Sort order is `createdAt DESC, id DESC`. " +
+    "Pass the returned `nextCursor` as `?cursor=` to fetch the next page. " +
+    "`nextCursor` is `null` when no further pages exist.",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      /** Filter to a specific market. */
+      marketId: z.string().min(1).max(128).optional(),
+      /** Filter by prediction lifecycle status. */
+      status: PredictionStatus.optional(),
+      /** Filter by chosen outcome value (e.g. "yes" / "no"). */
+      outcome: z.string().min(1).max(64).optional(),
+      /** Opaque cursor from the previous page\u2019s `nextCursor`. */
+      cursor: z.string().optional(),
+      /** Page size — default 20, max 100. */
+      limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated list of predictions",
+      content: {
+        "application/json": { schema: PredictionsListResponse },
+      },
+    },
+    400: {
+      description: "Validation error — invalid query parameters",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    401: {
+      description: "Unauthorized — missing or invalid JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
 registry.registerPath({
   method: "post",
   path: "/api/users/{addr}/follow",
