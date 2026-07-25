@@ -20,6 +20,10 @@
  *      - durationMs     : wall-clock time from middleware entry to flush
  *      - ip             : first non-empty value of X-Forwarded-For or req.ip
  *
+ * The log name is selected by route prefix so consumers can filter access logs
+ * more easily: `/api/users` => `users_access_log`, `/api/auth` =>
+ * `auth_access_log`, and `/api/predictions` => `predictions_access_log`.
+ *
  * Usage
  * -----
  *   import { accessLog } from "../middleware/accessLog";
@@ -115,6 +119,8 @@ export function accessLog(req: Request, res: Response, next: NextFunction): void
       logName = "users_access_log";
     } else if (req.originalUrl.startsWith("/api/auth")) {
       logName = "auth_access_log";
+    } else if (req.originalUrl.startsWith("/api/predictions")) {
+      logName = "predictions_access_log";
     }
 
     const durationMs = Date.now() - startMs;
