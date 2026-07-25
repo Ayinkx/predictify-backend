@@ -444,3 +444,41 @@ export type NewSchemaVersion = typeof schemaVersions.$inferInsert;
 
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Admin User Notes
+// ---------------------------------------------------------------------------
+/**
+ * admin_user_notes — freeform notes written by admins against a user account.
+ *
+ * Each row represents a single note entry. Notes are append-only by design:
+ * admins may delete individual notes but cannot silently modify existing ones,
+ * preserving a trustworthy audit trail.
+ *
+ * Indexed on `target_address` + `created_at` so paginated list queries are
+ * efficient even as the table grows.
+ */
+export const adminUserNotes = pgTable(
+  "admin_user_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Stellar address of the user this note is about */
+    targetAddress: text("target_address").notNull(),
+    /** Stellar address of the admin who wrote the note */
+    adminAddress: text("admin_address").notNull(),
+    /** Free-form note body (max 2 000 chars enforced at the route layer) */
+    note: text("note").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    adminUserNotesTargetIdx: index("admin_user_notes_target_idx").on(
+      t.targetAddress,
+      t.createdAt,
+    ),
+  }),
+);
+
+export type AdminUserNote = typeof adminUserNotes.$inferSelect;
+export type NewAdminUserNote = typeof adminUserNotes.$inferInsert;

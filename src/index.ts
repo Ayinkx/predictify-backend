@@ -20,6 +20,7 @@ import { userPortfolioRouter } from "./routes/users/portfolio";
 import { devicesRouter } from "./routes/devices";
 import { adminFeatureFlagsRouter } from "./routes/admin/featureFlags";
 import { adminUsersRouter } from "./routes/adminUsers";
+import { adminNotesRouter } from "./routes/admin/users/notes";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { globalLeaderboardRouter } from "./routes/leaderboard/global";
 import { devicesRouter } from "./routes/devices";
@@ -130,6 +131,7 @@ export function createApp(): express.Express {
   app.use("/api/me/sessions", sessionsRouter);
   app.use("/api/admin/audit", adminAuditRouter);
   app.use("/api/admin/users", adminUsersRouter);
+  app.use("/api/admin/users", adminNotesRouter);
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
