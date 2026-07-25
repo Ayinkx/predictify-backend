@@ -11,7 +11,7 @@ Returns a cursor-paginated list of predictions belonging to the **authenticated 
 Requires a valid JWT in the `Authorization: Bearer <token>` header.
 Returns `401 unauthenticated` when the token is absent, expired, or invalid.
 
-The endpoint also echoes a correlation ID via the `X-Correlation-Id` response header so clients can correlate their own logs with backend access logs.
+The authenticated predictions listing endpoint is also protected by a per-user rate limit of `60` requests per minute. Once that quota is exceeded, the endpoint returns `429 rate_limit_exceeded` with `Retry-After` and `resetAt` metadata.
 
 ---
 
@@ -100,6 +100,19 @@ GET /api/predictions?limit=20&cursor=djF8MjR8...
 }
 ```
 
+**429 rate_limit_exceeded** — per-user quota exceeded
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Too many requests",
+    "retryAfter": 60,
+    "resetAt": "2026-07-25T12:34:56.000Z"
+  }
+}
+```
+
 ---
 
 ### Implementation Details
@@ -120,7 +133,7 @@ GET /api/predictions?limit=20&cursor=djF8MjR8...
 
 - Input validated with Zod at the route boundary before any DB access.
 - `requireAuth` middleware enforces authentication; `req.user.id` is always populated when the handler executes.
-- Structured access logging is emitted for every response via the shared access-log middleware, including a correlation ID and route-specific log name `predictions_access_log`.
+- A per-user `createPerUserRateLimiter` protects the authenticated predictions routes at `60` requests/minute per user, returning a standard `429` error envelope with retry metadata.
 - Structured logging via `pino` with `reqId` (from `x-request-id`) and `userId` on every log entry.
 - Errors bubble to the global `errorHandler` middleware for standardised envelopes.
 
