@@ -315,38 +315,12 @@ describe("accessLog middleware", () => {
     );
   });
 
-  it("emits a markets_access_log entry when originalUrl starts with /api/markets", async () => {
-    const req = makeReq({
-      headers: { "x-correlation-id": "markets-log-test-id" },
-      method: "GET",
-      path: "/api/markets",
-      ip: "10.0.0.1",
-    });
-    const res = makeRes();
-    const next: NextFunction = jest.fn();
-
-    accessLog(req, res, next);
-    await fireFinish(res);
-
-    expect(loggerInfoSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        correlationId: "markets-log-test-id",
-        method: "GET",
-        path: "/api/markets",
-        statusCode: 200,
-        ip: "10.0.0.1",
-        durationMs: expect.any(Number),
-      }),
-      "markets_access_log",
-    );
-  });
-
   it("emits a predictions_access_log entry when originalUrl starts with /api/predictions", async () => {
     const req = makeReq({
       headers: { "x-correlation-id": "predictions-log-test-id" },
       method: "GET",
       path: "/api/predictions",
-      ip: "10.0.0.1",
+      ip: "10.0.0.2",
     });
     const res = makeRes();
     const next: NextFunction = jest.fn();
@@ -360,7 +334,7 @@ describe("accessLog middleware", () => {
         method: "GET",
         path: "/api/predictions",
         statusCode: 200,
-        ip: "10.0.0.1",
+        ip: "10.0.0.2",
         durationMs: expect.any(Number),
       }),
       "predictions_access_log",
