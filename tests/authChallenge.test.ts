@@ -23,6 +23,7 @@ jest.mock("../src/services/authChallengeService", () => ({
 }));
 
 import {
+  createChallenge,
   generateNonce,
   computeExpiresAt,
 } from "../src/services/authChallengeService";
@@ -92,5 +93,26 @@ describe("POST /api/auth/challenge", () => {
       
     expect(res304.status).toBe(304);
     expect(res304.body).toEqual({});
+  });
+
+  it("returns 408 when challenge creation exceeds the auth timeout", async () => {
+    jest.useFakeTimers();
+    (createChallenge as jest.Mock).mockImplementationOnce(() => new Promise(() => undefined));
+
+    const pending = request(app)
+      .post("/api/auth/challenge")
+      .send({ stellarAddress: "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6" });
+
+    await Promise.resolve();
+    jest.advanceTimersByTime(15000);
+
+    const res = await pending;
+    jest.useRealTimers();
+
+    expect(res.status).toBe(408);
+    expect(res.body.error).toMatchObject({
+      code: "timeout",
+      message: "Request timeout exceeded",
+    });
   });
 });
