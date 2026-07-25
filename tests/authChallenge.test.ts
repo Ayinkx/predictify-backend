@@ -6,6 +6,10 @@ process.env.PREDICTIFY_CONTRACT_ID = "CABC...";
 
 import request from "supertest";
 
+jest.mock("../src/services/auditService", () => ({
+  createAuditLog: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock("../src/services/authChallengeService", () => ({
   generateNonce: jest.fn(() => "aaaa"),
   computeExpiresAt: jest.fn(() => new Date()),
@@ -69,5 +73,27 @@ describe("POST /api/auth/challenge", () => {
       .send({});
     expect(res.status).toBe(400);
     expect(res.body.error.type).toBe("BadRequest");
+  }, 10000);
+
+  it("rate limits repeated challenge attempts for the same authenticated identity", async () => {
+    const address = "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6";
+
+    for (let index = 0; index < 5; index += 1) {
+      const res = await request(app)
+        .post("/api/auth/challenge")
+        .send({ stellarAddress: address });
+
+      if (index < 4) {
+        expect(res.status).toBe(201);
+      }
+    }
+
+    const res = await request(app)
+      .post("/api/auth/challenge")
+      .send({ stellarAddress: address });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe("rate_limit_exceeded");
+    expect(res.body.error.retryAfter).toEqual(expect.any(Number));
   }, 10000);
 });

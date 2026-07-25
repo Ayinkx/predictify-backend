@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
+import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import {
   rotateRefreshToken,
   revokeFamily,
@@ -10,6 +11,23 @@ import { verifyChallengeAndIssueJwt } from "../services/authVerifyService";
 import { RouteErrorFactory } from "../errors";
 
 export const authRouter = Router();
+
+function getAuthRateLimitKey(req: { body?: unknown; socket?: { remoteAddress?: string | null } }): string {
+  const body = typeof req.body === "object" && req.body !== null ? req.body as Record<string, unknown> : undefined;
+  const stellarAddress = typeof body?.stellarAddress === "string" ? body.stellarAddress.trim() : "";
+
+  if (stellarAddress.length > 0) {
+    return `auth:${stellarAddress}`;
+  }
+
+  return `ip:${req.socket?.remoteAddress ?? "unknown"}`;
+}
+
+authRouter.use(createPerUserRateLimiter({
+  windowMs: 60 * 1000,
+  limit: 5,
+  keyGenerator: (req) => getAuthRateLimitKey(req),
+}));
 
 const refreshTokenBodySchema = z.object({
   refreshToken: z.string().min(1),
