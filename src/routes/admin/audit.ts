@@ -46,8 +46,8 @@ export function createAdminAuditRouter(opts: AdminAuditRouterOptions = {}): Rout
 
   router.use(requireAdmin);
 
-  // Mount search handler to clear unused variable lint error
-  router.get("/search", searchAuditLogsHandler);
+  // Mount search handler (POST — parses req.body)
+  router.post("/search", searchAuditLogsHandler);
 
   router.get("/", async (req, res, next) => {
     try {

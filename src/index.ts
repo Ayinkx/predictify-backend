@@ -30,6 +30,7 @@ import { notificationsRouter } from "./routes/notifications";
 import { socialRouter } from "./routes/social";
 import { webhooksRouter } from "./routes/webhooks";
 import { adminAuditRouter } from "./routes/admin/audit";
+import { adminAuditExportRouter } from "./routes/admin/audit/export";
 import { adminMarketsRouter } from "./routes/admin/markets";
 import { adminSchemaVersionsRouter } from "./routes/admin/schema-versions";
 import { errorHandler } from "./middleware/errorHandler";
@@ -130,6 +131,7 @@ export function createApp(): express.Express {
   app.use("/api/me/devices", devicesRouter);
   app.use("/api/me/sessions", sessionsRouter);
   app.use("/api/admin/audit", adminAuditRouter);
+  app.use("/api/admin/audit", adminAuditExportRouter);
   app.use("/api/admin/users", adminUsersRouter);
   app.use("/api/admin/users", adminNotesRouter);
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
