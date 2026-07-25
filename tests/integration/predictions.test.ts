@@ -338,6 +338,18 @@ describe("GET /api/predictions integration", () => {
       expect(res.body.error.requestId).toEqual(expect.any(String));
     });
 
+    it("returns 400 validation_error when marketId is empty", async () => {
+      await seedUser("GEMPTYMARKETIDUSER");
+
+      const res = await request(createPredictionsApp())
+        .get("/api/predictions?marketId=")
+        .set("Authorization", `Bearer ${tokenFor("GEMPTYMARKETIDUSER")}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatchObject({ code: "validation_error" });
+      expect(res.body.error.requestId).toEqual(expect.any(String));
+    });
+
     it("returns 400 validation_error when limit exceeds the maximum", async () => {
       await seedUser("GLIMITUSER");
 
