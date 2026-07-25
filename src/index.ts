@@ -10,6 +10,7 @@ import { defaultBodySizeLimitMiddleware, webhookBodySizeLimitMiddleware } from "
 import { healthRouter } from "./routes/health";
 import dependenciesRouter from "./routes/healthz/dependencies";
 import { createReadyRouter } from "./routes/health/ready";
+import { dependenciesRouter } from "./routes/health/dependencies";
 import { redisConnection } from "./queue";
 import { authRouter } from "./routes/auth";
 import { marketsRouter } from "./routes/markets";
@@ -108,6 +109,7 @@ export function createApp(): express.Express {
   app.use("/health", healthRouter);
   app.use("/healthz/dependencies", dependenciesRouter);
   app.use("/api/health/ready", createReadyRouter({ db, redis: redisConnection }));
+  app.use("/api/health/dependencies", dependenciesRouter);
 
   const mutationMethods = ["POST", "PATCH"] as const;
   app.use("/api", (req, res, next) =>
