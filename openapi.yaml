@@ -2246,6 +2246,15 @@ paths:
                     $ref: '#/components/schemas/CurrentUserProfile'
                 required:
                   - data
+              examples:
+                currentUser:
+                  value:
+                    data:
+                      stellarAddress: GABC1234567890DEFGHIJKLMNOPQRSTUVWX
+                      createdAt: '2026-06-27T12:00:00.000Z'
+                      totals:
+                        prediction_count: 2
+                        claim_count: 0
         '401':
           description: Unauthorized
           content:
@@ -2301,6 +2310,15 @@ paths:
                 required:
                   - data
                   - nextCursor
+              examples:
+                samplePage:
+                  value:
+                    data:
+                      - id: 11111111-1111-1111-1111-111111111111
+                        marketId: market-abc-123
+                        status: confirmed
+                        createdAt: '2026-06-27T12:00:00.000Z'
+                    nextCursor: djF8MjR8...
         '400':
           description: Invalid address
           content:
@@ -2337,6 +2355,21 @@ paths:
                     $ref: '#/components/schemas/UserProfile'
                 required:
                   - data
+              examples:
+                publicProfile:
+                  value:
+                    data:
+                      id: 22222222-2222-2222-2222-222222222222
+                      stellarAddress: GXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV
+                      joinedAt: '2025-01-01T12:00:00.000Z'
+                      predictions:
+                        - id: 33333333-3333-3333-3333-333333333333
+                          marketId: market-def-456
+                          status: won
+                          createdAt: '2026-06-27T12:00:00.000Z'
+                      totals:
+                        prediction_count: 1
+                        claim_count: 1
         '400':
           description: Invalid Stellar address
           content:
@@ -2467,6 +2500,13 @@ paths:
                     $ref: '#/components/schemas/FollowResult'
                 required:
                   - data
+              examples:
+                followCreated:
+                  value:
+                    data:
+                      follower: GABC1234567890DEFGHIJKLMNOPQRSTUVWX
+                      followee: GXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV
+                      followedAt: '2026-06-27T12:00:00.000Z'
         '400':
           description: Validation error
           content:
@@ -2504,6 +2544,13 @@ paths:
                     $ref: '#/components/schemas/FollowResult'
                 required:
                   - data
+              examples:
+                followRemoved:
+                  value:
+                    data:
+                      follower: GABC1234567890DEFGHIJKLMNOPQRSTUVWX
+                      followee: GXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV
+                      followedAt: '2026-06-27T12:00:00.000Z'
         '400':
           description: Validation error
           content:

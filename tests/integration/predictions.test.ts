@@ -338,6 +338,29 @@ describe("GET /api/predictions integration", () => {
       expect(res.body.error.requestId).toEqual(expect.any(String));
     });
 
+    it("returns 429 once the per-user limit is exceeded", async () => {
+      await seedUser("GRATELIMITUSER");
+      const token = tokenFor("GRATELIMITUSER");
+
+      for (let index = 0; index < 60; index += 1) {
+        const res = await request(createPredictionsApp())
+          .get("/api/predictions")
+          .set("Authorization", `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+      }
+
+      const blocked = await request(createPredictionsApp())
+        .get("/api/predictions")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.error).toMatchObject({
+        code: "rate_limit_exceeded",
+        retryAfter: expect.any(Number),
+      });
+    });
+
     it("returns 400 validation_error when limit exceeds the maximum", async () => {
       await seedUser("GLIMITUSER");
 
@@ -355,6 +378,17 @@ describe("GET /api/predictions integration", () => {
       const res = await request(createPredictionsApp())
         .get("/api/predictions?limit=0")
         .set("Authorization", `Bearer ${tokenFor("GZEROLIMITUSER")}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("validation_error");
+    });
+
+    it("returns 400 validation_error for unexpected query parameters", async () => {
+      await seedUser("GUNEXPECTEDQUERYUSER");
+
+      const res = await request(createPredictionsApp())
+        .get("/api/predictions?status=won&unexpected=true")
+        .set("Authorization", `Bearer ${tokenFor("GUNEXPECTEDQUERYUSER")}`);
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe("validation_error");
