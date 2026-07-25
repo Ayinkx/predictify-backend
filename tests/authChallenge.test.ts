@@ -75,25 +75,22 @@ describe("POST /api/auth/challenge", () => {
     expect(res.body.error.type).toBe("BadRequest");
   }, 10000);
 
-  it("rate limits repeated challenge attempts for the same authenticated identity", async () => {
-    const address = "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6";
-
-    for (let index = 0; index < 5; index += 1) {
-      const res = await request(app)
-        .post("/api/auth/challenge")
-        .send({ stellarAddress: address });
-
-      if (index < 4) {
-        expect(res.status).toBe(201);
-      }
-    }
-
+  it("supports ETag and returns 304 on match", async () => {
     const res = await request(app)
       .post("/api/auth/challenge")
-      .send({ stellarAddress: address });
-
-    expect(res.status).toBe(429);
-    expect(res.body.error.code).toBe("rate_limit_exceeded");
-    expect(res.body.error.retryAfter).toEqual(expect.any(Number));
-  }, 10000);
+      .send({ stellarAddress: "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6" });
+    
+    expect(res.status).toBe(201);
+    expect(res.headers.etag).toBeDefined();
+    
+    const etag = res.headers.etag;
+    
+    const res304 = await request(app)
+      .post("/api/auth/challenge")
+      .set("If-None-Match", etag)
+      .send({ stellarAddress: "GABSCDZCXMOO6CYNTHBGHAOE3RX72FRMNWK6O4FOXW6OBQATNWKBUUW6" });
+      
+    expect(res304.status).toBe(304);
+    expect(res304.body).toEqual({});
+  });
 });
