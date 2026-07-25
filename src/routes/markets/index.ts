@@ -100,16 +100,15 @@ marketsRouter.get("/", async (req, res, next) => {
       throw parsed.error;
     }
 
-    const { limit, status, category, tag, sort, order } = parsed.data;
+    const { limit, cursor, status, category, tag, sort, order } = parsed.data;
 
     logger.debug(
-      { reqId, correlationId: reqId, limit, status, category, tag, sort, order },
+      { reqId, correlationId: reqId, limit, hasCursor: !!cursor, status, category, tag, sort, order },
       "markets_list_fetching",
     );
 
-    const data = await listMarkets();
-    const slicedData = limit !== undefined ? data.slice(0, limit) : data;
-    const payload = { data: slicedData };
+    const page = await listMarkets({ limit, cursor });
+    const payload = { data: page.data, nextCursor: page.nextCursor };
 
     const etagHandled = conditionalGet(payload, req, res);
     if (etagHandled) {
@@ -117,7 +116,7 @@ marketsRouter.get("/", async (req, res, next) => {
     }
 
     logger.info(
-      { reqId, correlationId: reqId, count: slicedData.length },
+      { reqId, correlationId: reqId, count: page.data.length, hasNext: !!page.nextCursor },
       "markets_list_success",
     );
     return res.status(200).json(payload);
