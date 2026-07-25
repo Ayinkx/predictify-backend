@@ -10,8 +10,10 @@ import { createChallenge } from "../services/authChallengeService";
 import { verifyChallengeAndIssueJwt } from "../services/authVerifyService";
 import { RouteErrorFactory } from "../errors";
 import { conditionalGet } from "../middleware/etag";
+import { accessLog } from "../middleware/accessLog";
 
 export const authRouter = Router();
+authRouter.use(accessLog);
 
 function getAuthRateLimitKey(req: { body?: unknown; socket?: { remoteAddress?: string | null } }): string {
   const body = typeof req.body === "object" && req.body !== null ? req.body as Record<string, unknown> : undefined;

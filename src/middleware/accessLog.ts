@@ -91,8 +91,7 @@ function resolveIp(req: Request): string {
  * Express middleware — structured access logger with correlation IDs.
  *
  * Stamps `res.locals.correlationId` and hooks `res.on("finish")` to emit
- * a `users_access_log` log entry once the response has been flushed.
- *
+ * a `users_access_log` or `auth_access_log` log entry once the response has been flushed.
  * Always calls `next()` so it is safe to mount as the first middleware on
  * any router without affecting the handler chain.
  */
@@ -111,6 +110,13 @@ export function accessLog(req: Request, res: Response, next: NextFunction): void
   // Emit the access-log entry after the response has been flushed.
   // Using "finish" (not "close") ensures the statusCode is already set.
   res.on("finish", () => {
+    let logName = "access_log";
+    if (req.originalUrl.startsWith("/api/users")) {
+      logName = "users_access_log";
+    } else if (req.originalUrl.startsWith("/api/auth")) {
+      logName = "auth_access_log";
+    }
+
     const durationMs = Date.now() - startMs;
     logger.info(
       {
@@ -121,7 +127,7 @@ export function accessLog(req: Request, res: Response, next: NextFunction): void
         durationMs,
         ip,
       },
-      "users_access_log",
+      logName,
     );
   });
 
