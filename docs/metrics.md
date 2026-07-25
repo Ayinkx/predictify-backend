@@ -32,6 +32,8 @@ Collected by `prom-client`'s `collectDefaultMetrics`:
 | Metric name | Type | Labels | Description |
 |---|---|---|---|
 | `http_request_duration_seconds` | Histogram | `route`, `status` | HTTP request duration in seconds, bucketed |
+| `markets_request_duration_seconds` | Histogram | `endpoint`, `method`, `status` | `/api/markets` request duration in seconds, bucketed per endpoint (`list`, `search`, `featured`, `upcoming`, `get`, `patch`) |
+| `markets_requests_total` | Counter | `endpoint`, `method`, `status` | Total `/api/markets` requests, segmented per endpoint (`list`, `search`, `featured`, `upcoming`, `get`, `patch`) |
 | `indexer_polls_total` | Counter | — | Total indexer poll cycles completed |
 | `webhook_deliveries_total` | Counter | `status` | Webhook deliveries by outcome |
 | `auth_verifications_total` | Counter | `outcome` | Auth verification attempts by result |
