@@ -3,6 +3,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
+import { conditionalGet } from "../middleware/etag";
 import { getPredictionExplanation } from "../services/predictionExplainService";
 import cancelRouter from "./predictions/cancel";
 import { createShareRouter } from "./predictions/share";
@@ -117,6 +118,9 @@ predictionsRouter.get(
         cursor,
       });
 
+      const payload = { data: page.data, nextCursor: page.nextCursor };
+      if (conditionalGet(payload, req, res)) return;
+
       logger.info(
         {
           reqId,
@@ -127,7 +131,7 @@ predictionsRouter.get(
         "predictions_list_served",
       );
 
-      res.json({ data: page.data, nextCursor: page.nextCursor });
+      res.json(payload);
     } catch (err) {
       next(err);
     }
@@ -143,6 +147,7 @@ predictionsRouter.get("/:id/explain", async (req, res, next) => {
   try {
     const { id } = req.params;
     const explanation = await getPredictionExplanation(id);
+    if (conditionalGet(explanation, req, res)) return;
     res.json(explanation);
   } catch (error) {
     next(error);

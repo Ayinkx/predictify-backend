@@ -133,6 +133,7 @@ import { predictionsRouter } from "../src/routes/predictions";
 import { errorHandler } from "../src/middleware/errorHandler";
 import { listPredictions } from "../src/repositories/predictionRepo";
 import { encodeCursor } from "../src/utils/cursor";
+import { generateETag } from "../src/middleware/etag";
 import { env } from "../src/config/env";
 
 const mockListPredictions = listPredictions as jest.MockedFunction<
@@ -383,6 +384,48 @@ describe("GET /api/predictions — route", () => {
         expect.any(String),
         expect.objectContaining({ limit: 20 }),
       );
+    });
+  });
+
+  // ── ETag caching ──────────────────────────────────────────────────────────
+
+  describe("ETag caching", () => {
+    beforeEach(() => {
+      authLimit.mockResolvedValue([MOCK_USER_ROW]);
+    });
+
+    it("returns 304 Not Modified when If-None-Match matches payload", async () => {
+      const cursor = encodeCursor({ sortValue: SORT_TS, id: PREDICTION_ID_1 });
+      const mockPayload = {
+        data: [makePredictionRow(PREDICTION_ID_1)],
+        nextCursor: cursor,
+      };
+      
+      mockListPredictions.mockResolvedValueOnce(mockPayload);
+
+      const etag = generateETag(mockPayload);
+
+      const res = await request(app)
+        .get(predictionsUrl({ limit: "1" }))
+        .set("Authorization", `Bearer ${validToken()}`)
+        .set("If-None-Match", etag);
+
+      expect(res.status).toBe(304);
+      expect(res.body).toEqual({});
+    });
+
+    it("returns 200 with ETag header on initial request", async () => {
+      const mockPayload = { data: [], nextCursor: null };
+      mockListPredictions.mockResolvedValueOnce(mockPayload);
+      
+      const expectedEtag = generateETag(mockPayload);
+
+      const res = await request(app)
+        .get(predictionsUrl())
+        .set("Authorization", `Bearer ${validToken()}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.etag).toBe(expectedEtag);
     });
   });
 
