@@ -11,6 +11,7 @@ import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
 import type { AuthenticatedRequest } from "../middleware/auth";
+import { conditionalGet } from "../middleware/etag";
 
 export const predictionsRouter = Router();
 
@@ -127,7 +128,10 @@ predictionsRouter.get(
         "predictions_list_served",
       );
 
-      res.json({ data: page.data, nextCursor: page.nextCursor });
+      const payload = { data: page.data, nextCursor: page.nextCursor };
+      if (conditionalGet(payload, req, res)) return;
+
+      res.json(payload);
     } catch (err) {
       next(err);
     }
