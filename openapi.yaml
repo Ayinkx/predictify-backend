@@ -76,6 +76,37 @@ components:
         - correlationId
         - checkedAt
         - dependencies
+    JwkKey:
+      type: object
+      properties:
+        kid:
+          type: string
+        alg:
+          type: string
+          enum:
+            - HS256
+        kty:
+          type: string
+          enum:
+            - oct
+        use:
+          type: string
+          enum:
+            - sig
+      required:
+        - kid
+        - alg
+        - kty
+        - use
+    JwksResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/JwkKey'
+      required:
+        - keys
     ChallengeResponse:
       type: object
       properties:
@@ -544,60 +575,8 @@ components:
         - indexer
         - rpc
         - checkedAt
-    JwkKey:
-      type: object
-      properties:
-        kid:
-          type: string
-          description: Key identifier
-        alg:
-          type: string
-          description: Signing algorithm
-          enum:
-            - HS256
-        kty:
-          type: string
-          description: Key type
-          enum:
-            - oct
-        use:
-          type: string
-          description: Intended use
-          enum:
-            - sig
-      required:
-        - kid
-        - alg
-        - kty
-        - use
-    JwksResponse:
-      type: object
-      properties:
-        keys:
-          type: array
-          items:
-            $ref: '#/components/schemas/JwkKey'
-      required:
-        - keys
   parameters: {}
 paths:
-  /.well-known/jwks.json:
-    get:
-      operationId: getJwks
-      tags:
-        - JWKS
-      summary: JSON Web Key Set endpoint
-      description: >-
-        Returns the JSON Web Key Set containing metadata for all available JWT signing keys.
-        Follows RFC 7517 (JWK) and RFC 7513 (JWKS) where applicable, adapted for HMAC-based signing (HS256).
-        The actual secret values are never exposed - only key metadata is returned.
-      responses:
-        '200':
-          description: JWKS response with key metadata
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JwksResponse'
   /health:
     get:
       operationId: healthCheck
@@ -656,6 +635,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /.well-known/jwks.json:
+    get:
+      operationId: getJwks
+      tags:
+        - JWKS
+      summary: JSON Web Key Set endpoint
+      description: >-
+        Returns the JSON Web Key Set containing metadata for all available JWT signing keys. Follows RFC 7517 (JWK) and
+        RFC 7513 (JWKS) where applicable, adapted for HMAC-based signing (HS256). The actual secret values are never
+        exposed - only key metadata is returned.
+      responses:
+        '200':
+          description: JWKS response with key metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwksResponse'
   /api/auth/challenge:
     post:
       operationId: authChallenge

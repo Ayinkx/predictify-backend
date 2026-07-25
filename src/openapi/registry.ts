@@ -110,6 +110,41 @@ registry.registerPath({
   },
 });
 
+// ── /.well-known/jwks.json ───────────────────────────────────────────────────
+
+const JwkKey = z
+  .object({
+    kid: z.string(),
+    alg: z.literal("HS256"),
+    kty: z.literal("oct"),
+    use: z.literal("sig"),
+  })
+  .openapi("JwkKey");
+
+const JwksResponse = z
+  .object({
+    keys: z.array(JwkKey),
+  })
+  .openapi("JwksResponse");
+
+registry.registerPath({
+  method: "get",
+  path: "/.well-known/jwks.json",
+  operationId: "getJwks",
+  tags: ["JWKS"],
+  summary: "JSON Web Key Set endpoint",
+  description:
+    "Returns the JSON Web Key Set containing metadata for all available JWT signing keys. " +
+    "Follows RFC 7517 (JWK) and RFC 7513 (JWKS) where applicable, adapted for HMAC-based signing (HS256). " +
+    "The actual secret values are never exposed - only key metadata is returned.",
+  responses: {
+    200: {
+      description: "JWKS response with key metadata",
+      content: { "application/json": { schema: JwksResponse } },
+    },
+  },
+});
+
 // ── /api/auth ────────────────────────────────────────────────────────────────
 
 const ChallengeRequest = z
