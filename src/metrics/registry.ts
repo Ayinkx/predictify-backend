@@ -68,3 +68,25 @@ export const signupAnomalyTopScore = new Gauge({
   help: "Highest modified z-score observed in the most recent signup-rate anomaly scan",
   registers: [register],
 });
+
+export const predictionsListTotal = new Counter({
+  name: "predictions_list_total",
+  help: "Total number of GET /api/predictions requests, segmented by outcome (success, error)",
+  labelNames: ["outcome"] as const,
+  registers: [register],
+});
+
+export const predictionExplainTotal = new Counter({
+  name: "prediction_explain_total",
+  help: "Total number of GET /api/predictions/:id/explain requests, segmented by outcome (success, error)",
+  labelNames: ["outcome"] as const,
+  registers: [register],
+});
+
+export const predictionsRequestDuration = new Histogram({
+  name: "predictions_request_duration_seconds",
+  help: "Duration of /api/predictions endpoint handlers in seconds",
+  labelNames: ["handler", "outcome"] as const,
+  buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
+  registers: [register],
+});
