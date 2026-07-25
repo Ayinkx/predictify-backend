@@ -116,6 +116,44 @@ components:
         - correlationId
         - checkedAt
         - dependencies
+    UsersHealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - down
+        correlationId:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - ok
+                    - down
+                latencyMs:
+                  type: number
+                error:
+                  type: string
+              required:
+                - status
+                - latencyMs
+          required:
+            - database
+      required:
+        - status
+        - correlationId
+        - checkedAt
+        - dependencies
     ChallengeResponse:
       type: object
       properties:
@@ -621,6 +659,58 @@ components:
         - joinedAt
         - predictions
         - totals
+    PredictionRow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        marketId:
+          type: string
+        question:
+          type: string
+        outcome:
+          type: string
+        amount:
+          type: string
+        txHash:
+          type: string
+        status:
+          type: string
+          enum: *ref_0
+        result:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        resolutionTime:
+          type: string
+          format: date-time
+      required:
+        - id
+        - marketId
+        - question
+        - outcome
+        - amount
+        - txHash
+        - status
+        - result
+        - createdAt
+        - resolutionTime
+    PredictionsListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictionRow'
+        nextCursor:
+          type: string
+          nullable: true
+      required:
+        - data
+        - nextCursor
     FollowResult:
       type: object
       properties:
@@ -954,6 +1044,73 @@ components:
         - indexer
         - rpc
         - checkedAt
+    QuotaRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        quotaType:
+          type: string
+        requestedValue:
+          type: integer
+        reason:
+          type: string
+        status:
+          type: string
+        reviewedBy:
+          type: string
+          nullable: true
+        reviewNotes:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - quotaType
+        - requestedValue
+        - reason
+        - status
+        - reviewedBy
+        - reviewNotes
+        - reviewedAt
+        - createdAt
+        - updatedAt
+    QuotaType:
+      type: string
+      enum:
+        - prediction_limit
+        - daily_prediction_limit
+        - claim_limit
+    CreateQuotaRequest:
+      type: object
+      properties:
+        quotaType:
+          $ref: '#/components/schemas/QuotaType'
+        requestedValue:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 1000
+      required:
+        - quotaType
+        - requestedValue
+        - reason
   parameters: {}
 paths:
   /health:
@@ -993,6 +1150,25 @@ paths:
           description: Some dependencies degraded
         '503':
           description: One or more dependencies down
+  /api/users/health:
+    get:
+      operationId: usersHealth
+      tags:
+        - Health
+      summary: User-facing dependency health probe
+      responses:
+        '200':
+          description: User service dependencies are healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersHealthResponse'
+        '503':
+          description: User service dependency probe failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersHealthResponse'
   /metrics:
     get:
       operationId: getMetrics
@@ -1025,6 +1201,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ChallengeRequest'
+            examples:
+              challengeRequest:
+                value:
+                  stellarAddress: GABC1234567890DEFGHIJKLMNOPQRSTUVWX
       responses:
         '201':
           description: Challenge issued
@@ -1032,6 +1212,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChallengeResponse'
+              examples:
+                challengeIssued:
+                  value:
+                    nonce: challenge-nonce-001
+                    expiresAt: '2026-07-25T12:00:00.000Z'
         '400':
           description: Validation error
           content:
@@ -1049,6 +1234,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/VerifyRequest'
+            examples:
+              verifyRequest:
+                value:
+                  stellarAddress: GABC1234567890DEFGHIJKLMNOPQRSTUVWX
+                  nonce: challenge-nonce-001
+                  signature: ed25519-signature-hex
       responses:
         '200':
           description: Tokens issued
@@ -1056,6 +1247,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
+              examples:
+                tokensIssued:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnb29nbGUtdXNlcjEifQ.signature
+                    refreshToken: refresh-token-001
         '400':
           description: Validation error
           content:
@@ -1079,6 +1275,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
+            examples:
+              refreshTokenRequest:
+                value:
+                  refreshToken: refresh-token-001
       responses:
         '200':
           description: New token pair
@@ -1086,6 +1286,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
+              examples:
+                refreshedTokens:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnb29nbGUtdXNlcjEifQ.signature
+                    refreshToken: refresh-token-002
         '400':
           description: Missing token
           content:
@@ -1115,6 +1320,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
+            examples:
+              logoutRequest:
+                value:
+                  refreshToken: refresh-token-001
       responses:
         '204':
           description: Logged out
@@ -1982,23 +2191,13 @@ paths:
           description: Current user profile
           content:
             application/json:
-                schema:
-                  type: object
-                  properties:
-                    data:
-                      $ref: '#/components/schemas/CurrentUserProfile'
-                  required:
-                    - data
-                examples:
-                  currentUser:
-                    summary: Example authenticated user profile
-                    value:
-                      data:
-                        stellarAddress: GCFXExampleUser1111111111111111111111111111
-                        createdAt: '2026-07-01T12:34:56.000Z'
-                        totals:
-                          prediction_count: 42
-                          claim_count: 3
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CurrentUserProfile'
+                required:
+                  - data
         '401':
           description: Unauthorized
           content:
@@ -2054,16 +2253,6 @@ paths:
                 required:
                   - data
                   - nextCursor
-              examples:
-                samplePage:
-                  summary: Example predictions page
-                  value:
-                    data:
-                      - id: '11111111-1111-4111-8111-111111111111'
-                        marketId: 'market-abc-123'
-                        status: pending
-                        createdAt: '2026-07-01T12:00:00.000Z'
-                    nextCursor: null
         '400':
           description: Invalid address
           content:
@@ -2100,22 +2289,6 @@ paths:
                     $ref: '#/components/schemas/UserProfile'
                 required:
                   - data
-                examples:
-                  publicProfile:
-                    summary: Example public user profile
-                    value:
-                      data:
-                        id: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'
-                        stellarAddress: GCFXExampleUser2222222222222222222222
-                        joinedAt: '2025-12-15T09:00:00.000Z'
-                        predictions:
-                          - id: '22222222-2222-4222-8222-222222222222'
-                            marketId: 'market-def-456'
-                            status: confirmed
-                            createdAt: '2026-01-02T10:00:00.000Z'
-                        totals:
-                          prediction_count: 7
-                          claim_count: 1
         '400':
           description: Invalid Stellar address
           content:
@@ -2124,6 +2297,71 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/predictions:
+    get:
+      operationId: listPredictions
+      tags:
+        - Predictions
+      summary: List the authenticated user’s predictions
+      description: >-
+        Returns a cursor-paginated list of predictions placed by the caller. Sort order is `createdAt DESC, id DESC`.
+        Pass the returned `nextCursor` as `?cursor=` to fetch the next page. `nextCursor` is `null` when no further
+        pages exist.
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+          required: false
+          name: marketId
+          in: query
+        - schema:
+            type: string
+            enum: *ref_0
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+          required: false
+          name: outcome
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: cursor
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+          name: limit
+          in: query
+      responses:
+        '200':
+          description: Paginated list of predictions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionsListResponse'
+        '400':
+          description: Validation error — invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized — missing or invalid JWT
           content:
             application/json:
               schema:
@@ -2154,14 +2392,6 @@ paths:
                     $ref: '#/components/schemas/FollowResult'
                 required:
                   - data
-                examples:
-                  followCreated:
-                    summary: Example follow creation result
-                    value:
-                      data:
-                        follower: GCFXExampleUser3333333333333333333333
-                        followee: GCFXExampleUser4444444444444444444444
-                        followedAt: '2026-07-10T08:00:00.000Z'
         '400':
           description: Validation error
           content:
@@ -2199,14 +2429,6 @@ paths:
                     $ref: '#/components/schemas/FollowResult'
                 required:
                   - data
-                examples:
-                  followRemoved:
-                    summary: Example follow removal result
-                    value:
-                      data:
-                        follower: GCFXExampleUser3333333333333333333333
-                        followee: GCFXExampleUser4444444444444444444444
-                        followedAt: '2026-07-10T08:00:00.000Z'
         '400':
           description: Validation error
           content:
@@ -2745,6 +2967,104 @@ paths:
                 $ref: '#/components/schemas/AdminHealthDetail'
         '403':
           description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/quota/requests:
+    post:
+      operationId: createQuotaRequest
+      tags:
+        - Quota
+      summary: Submit a quota increase request
+      description: >-
+        Authenticated users can request an increase to their rate limits. Each user may have at most 5 pending requests
+        at a time.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuotaRequest'
+      responses:
+        '201':
+          description: Quota request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/QuotaRequest'
+                required:
+                  - data
+        '400':
+          description: Validation error or too many pending requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    get:
+      operationId: listQuotaRequests
+      tags:
+        - Quota
+      summary: List quota requests for the authenticated user
+      description: Returns all quota requests submitted by the authenticated user, newest first.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of quota requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuotaRequest'
+                required:
+                  - data
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:

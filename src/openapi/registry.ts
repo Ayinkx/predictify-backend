@@ -161,12 +161,37 @@ registry.registerPath({
   tags: ["Auth"],
   summary: "Request a sign-in challenge nonce",
   request: {
-    body: { content: { "application/json": { schema: ChallengeRequest } } },
+    body: {
+      content: {
+        "application/json": {
+          schema: ChallengeRequest,
+          examples: {
+            challengeRequest: {
+              value: {
+                stellarAddress: "GABC1234567890DEFGHIJKLMNOPQRSTUVWX",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   responses: {
     201: {
       description: "Challenge issued",
-      content: { "application/json": { schema: ChallengeResponse } },
+      content: {
+        "application/json": {
+          schema: ChallengeResponse,
+          examples: {
+            challengeIssued: {
+              value: {
+                nonce: "challenge-nonce-001",
+                expiresAt: "2026-07-25T12:00:00.000Z",
+              },
+            },
+          },
+        },
+      },
     },
     400: {
       description: "Validation error",
@@ -193,12 +218,39 @@ registry.registerPath({
   tags: ["Auth"],
   summary: "Verify challenge signature and obtain JWT",
   request: {
-    body: { content: { "application/json": { schema: VerifyRequest } } },
+    body: {
+      content: {
+        "application/json": {
+          schema: VerifyRequest,
+          examples: {
+            verifyRequest: {
+              value: {
+                stellarAddress: "GABC1234567890DEFGHIJKLMNOPQRSTUVWX",
+                nonce: "challenge-nonce-001",
+                signature: "ed25519-signature-hex",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   responses: {
     200: {
       description: "Tokens issued",
-      content: { "application/json": { schema: TokenPair } },
+      content: {
+        "application/json": {
+          schema: TokenPair,
+          examples: {
+            tokensIssued: {
+              value: {
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnb29nbGUtdXNlcjEifQ.signature",
+                refreshToken: "refresh-token-001",
+              },
+            },
+          },
+        },
+      },
     },
     400: {
       description: "Validation error",
@@ -222,12 +274,37 @@ registry.registerPath({
   tags: ["Auth"],
   summary: "Rotate a refresh token",
   request: {
-    body: { content: { "application/json": { schema: RefreshRequest } } },
+    body: {
+      content: {
+        "application/json": {
+          schema: RefreshRequest,
+          examples: {
+            refreshTokenRequest: {
+              value: {
+                refreshToken: "refresh-token-001",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   responses: {
     200: {
       description: "New token pair",
-      content: { "application/json": { schema: TokenPair } },
+      content: {
+        "application/json": {
+          schema: TokenPair,
+          examples: {
+            refreshedTokens: {
+              value: {
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnb29nbGUtdXNlcjEifQ.signature",
+                refreshToken: "refresh-token-002",
+              },
+            },
+          },
+        },
+      },
     },
     400: {
       description: "Missing token",
@@ -251,7 +328,20 @@ registry.registerPath({
   tags: ["Auth"],
   summary: "Revoke the entire refresh-token family",
   request: {
-    body: { content: { "application/json": { schema: RefreshRequest } } },
+    body: {
+      content: {
+        "application/json": {
+          schema: RefreshRequest,
+          examples: {
+            logoutRequest: {
+              value: {
+                refreshToken: "refresh-token-001",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   responses: {
     204: { description: "Logged out" },
@@ -1916,18 +2006,17 @@ registry.registerPath({
       description: "All checks healthy",
       content: { "application/json": { schema: AdminHealthDetail } },
     },
-     207: {
-        description: "One or more checks degraded or errored",
-        content: { "application/json": { schema: AdminHealthDetail } },
-      },
-      403: {
-        description: "Forbidden — missing or non-admin JWT",
-        content: { "application/json": { schema: ErrorBody } },
-      },
-      429: {
-        description: "Rate limit exceeded",
-        content: { "application/json": { schema: ErrorBody } },
-      },
+    207: {
+      description: "One or more checks degraded or errored",
+      content: { "application/json": { schema: AdminHealthDetail } },
+    },
+    403: {
+      description: "Forbidden — missing or non-admin JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/json": { schema: ErrorBody } },
     },
   },
 });
