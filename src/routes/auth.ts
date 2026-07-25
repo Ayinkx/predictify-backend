@@ -12,10 +12,14 @@ import { RouteErrorFactory } from "../errors";
 import { conditionalGet } from "../middleware/etag";
 import { accessLog } from "../middleware/accessLog";
 import { requestTimeout } from "../middleware/timeout";
+import { authHealthRouter } from "./auth/health";
 
 export const authRouter = Router();
 authRouter.use(accessLog);
 authRouter.use(requestTimeout(15000));
+
+// ── Health probe (no auth required) ───────────────────────────────────────
+authRouter.use("/health", authHealthRouter);
 
 function getAuthRateLimitKey(req: { body?: unknown; socket?: { remoteAddress?: string | null } }): string {
   const body = typeof req.body === "object" && req.body !== null ? req.body as Record<string, unknown> : undefined;

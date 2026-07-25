@@ -387,6 +387,44 @@ registry.registerPath({
   },
 });
 
+// ── GET /api/auth/health ────────────────────────────────────────────────────
+
+const AuthHealthResponse = z
+  .object({
+    status: z.enum(["ok", "down"]),
+    correlationId: z.string(),
+    checkedAt: z.string().datetime(),
+    dependencies: z.object({
+      database: z.object({
+        status: z.enum(["ok", "down"]),
+        latencyMs: z.number(),
+        error: z.string().optional(),
+      }),
+    }),
+  })
+  .openapi("AuthHealthResponse");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/auth/health",
+  operationId: "authHealth",
+  tags: ["Health"],
+  summary: "Health probe for /api/auth dependencies",
+  description:
+    "Probes the Postgres database used by auth operations (challenge store, " +
+    "refresh-token store). No authentication required.",
+  responses: {
+    200: {
+      description: "Auth service dependencies are healthy",
+      content: { "application/json": { schema: AuthHealthResponse } },
+    },
+    503: {
+      description: "Database probe failed",
+      content: { "application/json": { schema: AuthHealthResponse } },
+    },
+  },
+});
+
 // ── /api/markets ─────────────────────────────────────────────────────────────
 
 const Market = z
