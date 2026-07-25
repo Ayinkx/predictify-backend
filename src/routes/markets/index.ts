@@ -12,6 +12,7 @@ import { rateLimitAnon } from "../../middleware/rateLimitAnon";
 import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
 import { RouteErrorFactory } from "../../errors";
+import { conditionalGet } from "../../middleware/etag";
 import { recommendationsRouter } from "./recommendations";
 import { trendingRouter } from "./trending";
 import { tagsRouter } from "./tags";
@@ -108,12 +109,18 @@ marketsRouter.get("/", async (req, res, next) => {
 
     const data = await listMarkets();
     const slicedData = limit !== undefined ? data.slice(0, limit) : data;
+    const payload = { data: slicedData };
+
+    const etagHandled = conditionalGet(payload, req, res);
+    if (etagHandled) {
+      return;
+    }
 
     logger.info(
       { reqId, correlationId: reqId, count: slicedData.length },
       "markets_list_success",
     );
-    return res.json({ data: slicedData });
+    return res.status(200).json(payload);
   } catch (e) {
     logger.error(
       { reqId, correlationId: reqId, err: e },

@@ -34,6 +34,13 @@ non-archived markets related to terms from the user's prediction history, and
 falls back to recent active non-archived markets when there is no usable history
 or no related market is found.
 
+### ETag support
+
+`GET /api/markets` supports conditional revalidation through `ETag` and `If-None-Match`.
+On a matching revalidation request, the route responds with `304 Not Modified`
+and does not return a response body. Clients should treat the response as a
+cache revalidation success and reuse the previously cached representation.
+
 ### Errors
 
 - `401 Unauthorized` when the bearer token is missing, malformed, invalid, or
