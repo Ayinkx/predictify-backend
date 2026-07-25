@@ -43,10 +43,21 @@ import { reconciliationWorker } from "./workers/reconciliationWorker";
 import { rateLimitStatusRouter } from "./routes/rate-limit/status";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
 import { startSlowQueryAlerter, stopSlowQueryAlerter } from "./workers/slowQueryAlerter";
+import { createAdminWebhooksRouter } from "./routes/adminWebhooks";
+import { createWebhooksRouter } from "./routes/webhooks";
+import type { IWebhookDispatcher } from "./services/webhookDispatcher";
+import type { WebhookStore } from "./services/webhookStore";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
 
 const REQUEST_ID_MAX_LENGTH = 64;
+
+export interface CreateAppOptions {
+  webhooks?: {
+    store: WebhookStore;
+    dispatcher: IWebhookDispatcher;
+  };
+}
 
 function sanitizeRequestId(raw: string): string | undefined {
   const sanitized = raw
@@ -55,7 +66,7 @@ function sanitizeRequestId(raw: string): string | undefined {
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
-export function createApp(): express.Express {
+export function createApp(options: CreateAppOptions = {}): express.Express {
   const app = express();
 
   app.set("etag", false);
@@ -130,6 +141,10 @@ export function createApp(): express.Express {
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
   app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
+  if (options.webhooks) {
+    app.use("/api/webhooks", createWebhooksRouter({ store: options.webhooks.store }));
+    app.use("/api/admin/webhooks", createAdminWebhooksRouter(options.webhooks));
+  }
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;
