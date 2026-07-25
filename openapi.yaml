@@ -1075,6 +1075,73 @@ components:
         - indexer
         - rpc
         - checkedAt
+    CircuitBreakerState:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - indexer
+            - webhook
+        enabled:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+          nullable: true
+      required:
+        - type
+        - enabled
+        - updatedAt
+        - updatedBy
+    CircuitBreakerListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CircuitBreakerState'
+      required:
+        - data
+    CircuitBreakerToggleRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - indexer
+            - webhook
+        enabled:
+          type: boolean
+      required:
+        - type
+        - enabled
+    CircuitBreakerMultiToggleRequest:
+      type: object
+      properties:
+        indexer:
+          type: boolean
+        webhook:
+          type: boolean
+      required: []
+    CircuitBreakerToggleResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CircuitBreakerState'
+      required:
+        - data
+    CircuitBreakerMultiToggleResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CircuitBreakerState'
+      required:
+        - data
     QuotaRequest:
       type: object
       properties:
@@ -3093,6 +3160,130 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/circuit-breaker:
+    get:
+      operationId: listCircuitBreakers
+      tags:
+        - Admin
+      summary: List circuit breaker states (admin only)
+      description: Returns the current state of indexer and webhook circuit breakers.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Circuit breaker states
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerListResponse'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    post:
+      operationId: toggleCircuitBreaker
+      tags:
+        - Admin
+      summary: Toggle a single circuit breaker (admin only)
+      description: Enables or disables the indexer or webhook circuit breaker.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CircuitBreakerToggleRequest'
+      responses:
+        '200':
+          description: Circuit breaker state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerToggleResponse'
+        '400':
+          description: Invalid breaker type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          description: Conflict — breaker already in requested state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    patch:
+      operationId: toggleMultipleCircuitBreakers
+      tags:
+        - Admin
+      summary: Toggle multiple circuit breakers (admin only)
+      description: Enables or disables indexer and/or webhook circuit breakers in a single request.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CircuitBreakerMultiToggleRequest'
+      responses:
+        '200':
+          description: Circuit breaker states updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerMultiToggleResponse'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          description: Conflict — breaker already in requested state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '422':
+          description: Validation error (at least one of indexer or webhook required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
         '429':
           description: Rate limit exceeded
           content:

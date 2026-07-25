@@ -42,7 +42,7 @@ export function errorHandler(
     logger.error({ err, path: req.path, method: req.method, correlationId, requestId: reqId }, "app_error");
     res.status(err.status).json({
       error: {
-        type: err.code,
+        code: err.code,
         message: err.message,
         ...(err.details !== undefined ? { details: err.details } : {}),
         correlationId,
@@ -55,7 +55,7 @@ export function errorHandler(
     logger.warn({ err, path: req.path, method: req.method, correlationId, requestId: reqId }, "validation_error");
     res.status(400).json({
       error: {
-        type: ErrorCodes.VALIDATION_ERROR,
+        code: ErrorCodes.VALIDATION_ERROR,
         message: "Validation failed",
         details: err.issues,
         correlationId,
@@ -67,7 +67,7 @@ export function errorHandler(
   logger.error({ err, path: req.path, method: req.method, requestId: reqId }, "unknown_error");
   res.status(500).json({
     error: {
-      type: ErrorCodes.INTERNAL_ERROR,
+      code: ErrorCodes.INTERNAL_ERROR,
       message: "Internal error",
       correlationId,
     },
