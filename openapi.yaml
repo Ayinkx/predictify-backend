@@ -223,6 +223,29 @@ components:
           minimum: 0
       required:
         - expectedVersion
+    PredictionCountResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            marketId:
+              type: string
+            count:
+              type: integer
+              minimum: 0
+            computedAt:
+              type: string
+              format: date-time
+            cached:
+              type: boolean
+          required:
+            - marketId
+            - count
+            - computedAt
+            - cached
+      required:
+        - data
     LeaderboardEntry:
       type: object
       properties:
@@ -236,6 +259,64 @@ components:
         - rank
         - stellarAddress
         - score
+    AnonRateLimitStatus:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - anonymous
+            clientIp:
+              type: string
+            limit:
+              type: integer
+            used:
+              type: integer
+            remaining:
+              type: integer
+            windowMs:
+              type: integer
+            resetAt:
+              type: string
+              format: date-time
+          required:
+            - type
+            - clientIp
+            - limit
+            - used
+            - remaining
+            - windowMs
+            - resetAt
+      required:
+        - data
+    AuthRateLimitStatus:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - authenticated
+            limit:
+              type: integer
+            windowMs:
+              type: integer
+            bypasses:
+              type: boolean
+              enum:
+                - true
+          required:
+            - type
+            - limit
+            - windowMs
+            - bypasses
+      required:
+        - data
     FeaturedMarket:
       type: object
       properties:
@@ -636,6 +717,109 @@ components:
         - id
         - action
         - createdAt
+    PluginView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        config:
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - enabled
+        - createdAt
+        - updatedAt
+    CreatePluginRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        enabled:
+          type: boolean
+        config:
+          type: object
+          additionalProperties:
+            nullable: true
+      required:
+        - name
+    UpdatePluginRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
+        enabled:
+          type: boolean
+        config:
+          type: object
+          additionalProperties:
+            nullable: true
+    DeletePluginResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+    AdminRateLimitInspect:
+      type: object
+      properties:
+        address:
+          type: string
+          description: Target Stellar address
+        limit:
+          type: integer
+          description: Configured request cap in the window
+        used:
+          type: integer
+          description: Requests currently active in the window
+        remaining:
+          type: integer
+          description: Requests remaining in the current window
+        windowMs:
+          type: integer
+          description: Sliding-window length in milliseconds
+        resetAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp when the window resets
+      required:
+        - address
+        - limit
+        - used
+        - remaining
+        - windowMs
+        - resetAt
     CheckStatus:
       type: string
       enum:
@@ -731,7 +915,6 @@ components:
         - rpc
         - checkedAt
   parameters: {}
-
 paths:
   /health:
     get:
@@ -949,6 +1132,26 @@ paths:
                       $ref: '#/components/schemas/Market'
                 required:
                   - data
+              examples:
+                default:
+                  value:
+                    data:
+                      - id: market-001
+                        question: Will the US win the 2026 FIFA World Cup?
+                        status: active
+                        metadata:
+                          category: sports
+                          resolutionSource: official
+                        version: 1
+                        createdAt: '2026-01-10T12:00:00.000Z'
+                      - id: market-002
+                        question: Will Stellar launch a new protocol upgrade in 2026?
+                        status: active
+                        metadata:
+                          category: technology
+                          resolutionSource: community
+                        version: 2
+                        createdAt: '2026-02-14T07:30:00.000Z'
   /api/markets/search:
     get:
       operationId: searchMarkets
@@ -998,6 +1201,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /api/markets/tags:
+    get:
+      operationId: getMarketTags
+      tags:
+        - Markets
+      summary: Get market tags with counts
+      responses:
+        '200':
+          description: Market tags with counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag:
+                          type: string
+                        count:
+                          type: number
+                      required:
+                        - tag
+                        - count
+                required:
+                  - data
   /api/markets/{id}:
     get:
       operationId: getMarketById
@@ -1022,6 +1253,18 @@ paths:
                     $ref: '#/components/schemas/Market'
                 required:
                   - data
+              examples:
+                default:
+                  value:
+                    data:
+                      id: market-001
+                      question: Will the US win the 2026 FIFA World Cup?
+                      status: active
+                      metadata:
+                        category: sports
+                        resolutionSource: official
+                      version: 1
+                      createdAt: '2026-01-10T12:00:00.000Z'
         '404':
           description: Not found
           content:
@@ -1072,6 +1315,40 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '409':
           description: Version conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/markets/{id}/prediction-count:
+    get:
+      operationId: getMarketPredictionCount
+      tags:
+        - Markets
+      summary: Get total prediction count for a market
+      description: >-
+        Returns the total number of predictions placed on the given market. Results are cached in Redis for 60 seconds.
+        The `cached` field indicates whether the value came from the cache.
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Prediction count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionCountResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '404':
+          description: Market not found
           content:
             application/json:
               schema:
@@ -1168,6 +1445,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /api/rate-limit/status:
+    get:
+      operationId: getRateLimitStatus
+      tags:
+        - Rate Limiting
+      summary: Get the current anonymous rate-limit status for the caller
+      responses:
+        '200':
+          description: Rate-limit status (type differs for anonymous vs authenticated callers)
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AnonRateLimitStatus'
+                  - $ref: '#/components/schemas/AuthRateLimitStatus'
   /api/markets/featured:
     get:
       operationId: getFeaturedMarkets
@@ -1679,45 +1971,23 @@ paths:
       tags:
         - Users
       summary: List predictions for a Stellar address
-      description: |
-        Returns a cursor-paginated list of predictions for the given Stellar
-        address, ordered by `createdAt DESC, id DESC`.
-
-        **Cursor pagination**
-
-        Pass the opaque `nextCursor` value from a previous response back as the
-        `?cursor=` query parameter to fetch the next page.  When `nextCursor` is
-        `null` you have reached the last page.
-
-        Cursors are versioned base64url tokens.  A cursor minted under a
-        different schema version (e.g. from before a migration) is silently
-        ignored and the response restarts from the first page rather than
-        returning an error or a wrong offset.
       parameters:
         - schema:
             type: string
-            pattern: '^G[A-Z2-7]{55}$'
           required: true
           name: address
           in: path
-          description: 56-character Stellar public key (G…)
         - schema:
             type: string
             enum: *ref_0
           required: false
           name: status
           in: query
-          description: Filter by prediction status.
         - schema:
             type: string
           required: false
           name: cursor
           in: query
-          description: >
-            Opaque, versioned base64url pagination cursor returned as
-            `nextCursor` from the previous page.  Omit or leave empty to start
-            from the first page.  An invalid or version-mismatched cursor is
-            treated as absent (restarts from page one).
         - schema:
             type: integer
             minimum: 1
@@ -1726,7 +1996,6 @@ paths:
           required: false
           name: limit
           in: query
-          description: Maximum number of predictions to return (1–100, default 20).
       responses:
         '200':
           description: Paginated predictions
@@ -1739,14 +2008,9 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Prediction'
-                    description: Predictions for this page, ordered by createdAt DESC.
                   nextCursor:
                     type: string
                     nullable: true
-                    description: >
-                      Opaque cursor for the next page, or null when this is the
-                      last page.  Pass verbatim as `?cursor=` on the next
-                      request.
                 required:
                   - data
                   - nextCursor
@@ -1761,7 +2025,7 @@ paths:
                         createdAt: '2026-07-01T12:00:00.000Z'
                     nextCursor: null
         '400':
-          description: Invalid address or query parameters
+          description: Invalid address
           content:
             application/json:
               schema:
@@ -2096,6 +2360,315 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '403':
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/plugins:
+    get:
+      operationId: listAdminPlugins
+      tags:
+        - Admin
+      summary: List all plugins (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
+          required: false
+          name: enabled
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+          required: false
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: Paginated list of plugins
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PluginView'
+                  total:
+                    type: integer
+                required:
+                  - data
+                  - total
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    post:
+      operationId: createAdminPlugin
+      tags:
+        - Admin
+      summary: Create a new plugin (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePluginRequest'
+      responses:
+        '201':
+          description: Plugin created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PluginView'
+                required:
+                  - data
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          description: Plugin name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/plugins/{id}:
+    get:
+      operationId: getAdminPlugin
+      tags:
+        - Admin
+      summary: Get a single plugin by ID (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Plugin details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PluginView'
+                required:
+                  - data
+        '400':
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    patch:
+      operationId: updateAdminPlugin
+      tags:
+        - Admin
+      summary: Update a plugin (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePluginRequest'
+      responses:
+        '200':
+          description: Plugin updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PluginView'
+                required:
+                  - data
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    delete:
+      operationId: deleteAdminPlugin
+      tags:
+        - Admin
+      summary: Delete a plugin (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Plugin deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeletePluginResult'
+                required:
+                  - data
+        '400':
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/rate-limit/inspect/{address}:
+    get:
+      operationId: inspectAdminRateLimit
+      tags:
+        - Admin
+      summary: Inspect current rate-limit state for an address (admin only)
+      description: Returns the current sliding-window rate-limit usage for a target Stellar address. Admin-only and read-only.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current rate-limit state for the requested address
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AdminRateLimitInspect'
+                required:
+                  - data
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
           content:
             application/json:
               schema:

@@ -17,14 +17,15 @@ import { logger } from "../config/logger";
 
 // Augment Express Request so downstream handlers can read the admin identity
 // without casting.
+/* eslint-disable @typescript-eslint/no-namespace */
 declare global {
-   
   namespace Express {
     interface Request {
       adminAddress?: string;
     }
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace */
 
 interface AdminTokenPayload {
   sub?: string;

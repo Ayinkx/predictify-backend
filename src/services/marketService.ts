@@ -2,7 +2,7 @@
 import { invalidateMarketCache } from "../cache/marketsCache";
 import { db, getDb } from "../db/client";
 import { markets, marketAuditLog, predictions } from "../db/schema";
-import { and, asc, eq, inArray, gt, desc, notInArray, sql, or } from "drizzle-orm";
+import { and, asc, eq, inArray, desc, notInArray, sql, or } from "drizzle-orm";
 import { emitMarketEvent, LogEvent } from "../logging/events";
 
 export interface Market {
@@ -10,7 +10,6 @@ export interface Market {
   question: string;
   status: string;
   resolutionTime: Date;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: any;
   indexedLedger: number;
   archived: boolean;
@@ -119,8 +118,6 @@ export async function listUpcomingMarkets(
   options: { limit?: number; now?: Date } = {},
 ): Promise<any[]> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
-  const now = options.now ?? new Date();
-
   const rows = await getDb()
     .select({
       id: markets.id,

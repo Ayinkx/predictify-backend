@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { requireAdmin } from "../../middleware/requireAdmin";
@@ -10,6 +10,15 @@ import {
   MarketNotFoundError,
 } from "../../services/marketFeatureService";
 import { RouteErrorFactory } from "../../errors";
+
+// Define custom interface for request with user context
+interface AuthenticatedAdminRequest extends Request {
+  adminAddress?: string;
+  user?: {
+    stellarAddress: string;
+    [key: string]: unknown;
+  };
+}
 
 function extractClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -56,12 +65,12 @@ export function createAdminMarketsRouter(
   router.use(requireAdmin);
 
   const handle = async (
-    req: import("express").Request,
-    res: import("express").Response,
+    req: AuthenticatedAdminRequest,
+    res: Response,
     operation: "feature" | "unfeature",
   ): Promise<void> => {
     const parsed = paramsSchema.safeParse(req.params);
-    const requestId = requestIdOf({ id: req.id });
+    const requestId = requestIdOf({ id: (req as Record<string, unknown>).id });
 
     if (!parsed.success) {
       throw RouteErrorFactory.validation("Invalid market ID");
@@ -91,7 +100,7 @@ export function createAdminMarketsRouter(
 
   router.post("/:id/feature", async (req, res, next) => {
     try {
-      await handle(req, res, "feature");
+      await handle(req as AuthenticatedAdminRequest, res, "feature");
     } catch (err) {
       next(err);
     }
@@ -99,7 +108,7 @@ export function createAdminMarketsRouter(
 
   router.delete("/:id/feature", async (req, res, next) => {
     try {
-      await handle(req, res, "unfeature");
+      await handle(req as AuthenticatedAdminRequest, res, "unfeature");
     } catch (err) {
       next(err);
     }
@@ -112,7 +121,7 @@ export function createAdminMarketsRouter(
     })
     .strict();
 
-  router.post("/disable", async (req: any, res, next) => {
+  router.post("/disable", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsed = disableBodySchema.safeParse(req.body);
       if (!parsed.success) {
@@ -122,7 +131,8 @@ export function createAdminMarketsRouter(
       }
 
       const { marketId, reason } = parsed.data;
-      const adminAddress = req.user!.stellarAddress;
+      const adminReq = req as AuthenticatedAdminRequest;
+      const adminAddress = adminReq.user?.stellarAddress ?? adminReq.adminAddress ?? "";
 
       const updated = await disableMarket(marketId, reason, adminAddress);
 

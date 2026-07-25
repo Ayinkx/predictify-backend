@@ -89,6 +89,41 @@ registry.registerPath({
   },
 });
 
+// ── /api/users/health ────────────────────────────────────────────────────
+
+const UsersHealthResponse = z
+  .object({
+    status: z.enum(["ok", "down"]),
+    correlationId: z.string(),
+    checkedAt: z.string().datetime(),
+    dependencies: z.object({
+      database: z.object({
+        status: z.enum(["ok", "down"]),
+        latencyMs: z.number(),
+        error: z.string().optional(),
+      }),
+    }),
+  })
+  .openapi("UsersHealthResponse");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/users/health",
+  operationId: "usersHealth",
+  tags: ["Health"],
+  summary: "User-facing dependency health probe",
+  responses: {
+    200: {
+      description: "User service dependencies are healthy",
+      content: { "application/json": { schema: UsersHealthResponse } },
+    },
+    503: {
+      description: "User service dependency probe failed",
+      content: { "application/json": { schema: UsersHealthResponse } },
+    },
+  },
+});
+
 // ── /metrics ─────────────────────────────────────────────────────────────────
 
 registry.registerPath({
@@ -296,7 +331,39 @@ registry.registerPath({
     200: {
       description: "Array of markets",
       content: {
-        "application/json": { schema: z.object({ data: z.array(Market) }) },
+        "application/json": {
+          schema: z.object({ data: z.array(Market) }),
+          examples: {
+            default: {
+              value: {
+                data: [
+                  {
+                    id: "market-001",
+                    question: "Will the US win the 2026 FIFA World Cup?",
+                    status: "active",
+                    metadata: {
+                      category: "sports",
+                      resolutionSource: "official",
+                    },
+                    version: 1,
+                    createdAt: "2026-01-10T12:00:00.000Z",
+                  },
+                  {
+                    id: "market-002",
+                    question: "Will Stellar launch a new protocol upgrade in 2026?",
+                    status: "active",
+                    metadata: {
+                      category: "technology",
+                      resolutionSource: "community",
+                    },
+                    version: 2,
+                    createdAt: "2026-02-14T07:30:00.000Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
       },
     },
   },
@@ -365,7 +432,28 @@ registry.registerPath({
   responses: {
     200: {
       description: "Market",
-      content: { "application/json": { schema: z.object({ data: Market }) } },
+      content: {
+        "application/json": {
+          schema: z.object({ data: Market }),
+          examples: {
+            default: {
+              value: {
+                data: {
+                  id: "market-001",
+                  question: "Will the US win the 2026 FIFA World Cup?",
+                  status: "active",
+                  metadata: {
+                    category: "sports",
+                    resolutionSource: "official",
+                  },
+                  version: 1,
+                  createdAt: "2026-01-10T12:00:00.000Z",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     404: {
       description: "Not found",
@@ -1173,6 +1261,91 @@ registry.registerPath({
     },
     404: {
       description: "User not found",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
+// ── /api/predictions ──────────────────────────────────────────────────────────
+
+/**
+ * PredictionRow — the shape returned by GET /api/predictions.
+ * Includes the joined market question and resolution time for display.
+ */
+const PredictionRow = z
+  .object({
+    id: z.string().uuid(),
+    marketId: z.string(),
+    question: z.string(),
+    outcome: z.string(),
+    amount: z.string(),
+    txHash: z.string(),
+    status: PredictionStatus,
+    result: z.string().nullable(),
+    createdAt: z.string().datetime(),
+    resolutionTime: z.string().datetime(),
+  })
+  .openapi("PredictionRow");
+
+const PredictionsListResponse = z
+  .object({
+    data: z.array(PredictionRow),
+    /** Opaque cursor for the next page, or null if this is the last page. */
+    nextCursor: z.string().nullable(),
+  })
+  .openapi("PredictionsListResponse");
+
+/**
+ * GET /api/predictions
+ *
+ * Returns a cursor-paginated list of predictions belonging to the
+ * authenticated user.
+ *
+ * Keyset pagination on (createdAt DESC, id DESC) — stable and efficient
+ * even as new rows are inserted between page loads.
+ *
+ * Filters: marketId, status, outcome (all optional).
+ * Pagination: cursor + limit (default 20, max 100).
+ */
+registry.registerPath({
+  method: "get",
+  path: "/api/predictions",
+  operationId: "listPredictions",
+  tags: ["Predictions"],
+  summary: "List the authenticated user\u2019s predictions",
+  description:
+    "Returns a cursor-paginated list of predictions placed by the caller. " +
+    "Sort order is `createdAt DESC, id DESC`. " +
+    "Pass the returned `nextCursor` as `?cursor=` to fetch the next page. " +
+    "`nextCursor` is `null` when no further pages exist.",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      /** Filter to a specific market. */
+      marketId: z.string().min(1).max(128).optional(),
+      /** Filter by prediction lifecycle status. */
+      status: PredictionStatus.optional(),
+      /** Filter by chosen outcome value (e.g. "yes" / "no"). */
+      outcome: z.string().min(1).max(64).optional(),
+      /** Opaque cursor from the previous page\u2019s `nextCursor`. */
+      cursor: z.string().optional(),
+      /** Page size — default 20, max 100. */
+      limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated list of predictions",
+      content: {
+        "application/json": { schema: PredictionsListResponse },
+      },
+    },
+    400: {
+      description: "Validation error — invalid query parameters",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    401: {
+      description: "Unauthorized — missing or invalid JWT",
       content: { "application/json": { schema: ErrorBody } },
     },
   },

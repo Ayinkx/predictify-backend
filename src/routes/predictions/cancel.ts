@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../../middleware/auth';
 import { db } from '../../db';
-import { predictions, markets, users } from '../../db/schema';
+import { predictions, users } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../../logging';
 
@@ -20,7 +20,7 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     // 1. Find the prediction
     const prediction = await db.query.predictions.findFirst({
       where: and(
-        eq(predictions.id, parseInt(id)),
+        eq(predictions.id, parseInt(id, 10)),
         eq(predictions.userId, userId)
       ),
       with: {
