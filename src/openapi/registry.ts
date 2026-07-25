@@ -1319,6 +1319,20 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: z.object({ data: CurrentUserProfile }),
+          examples: {
+            currentUser: {
+              value: {
+                data: {
+                  stellarAddress: "GABC1234567890DEFGHIJKLMNOPQRSTUVWX",
+                  createdAt: "2026-06-27T12:00:00.000Z",
+                  totals: {
+                    prediction_count: 2,
+                    claim_count: 0,
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -1352,6 +1366,21 @@ registry.registerPath({
             data: z.array(Prediction),
             nextCursor: z.string().nullable(),
           }),
+          examples: {
+            samplePage: {
+              value: {
+                data: [
+                  {
+                    id: "11111111-1111-1111-1111-111111111111",
+                    marketId: "market-abc-123",
+                    status: "confirmed",
+                    createdAt: "2026-06-27T12:00:00.000Z",
+                  },
+                ],
+                nextCursor: "djF8MjR8...",
+              },
+            },
+          },
         },
       },
     },
@@ -1377,7 +1406,32 @@ registry.registerPath({
     200: {
       description: "User profile",
       content: {
-        "application/json": { schema: z.object({ data: UserProfile }) },
+        "application/json": {
+          schema: z.object({ data: UserProfile }),
+          examples: {
+            publicProfile: {
+              value: {
+                data: {
+                  id: "22222222-2222-2222-2222-222222222222",
+                  stellarAddress: "GXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV",
+                  joinedAt: "2025-01-01T12:00:00.000Z",
+                  predictions: [
+                    {
+                      id: "33333333-3333-3333-3333-333333333333",
+                      marketId: "market-def-456",
+                      status: "won",
+                      createdAt: "2026-06-27T12:00:00.000Z",
+                    },
+                  ],
+                  totals: {
+                    prediction_count: 1,
+                    claim_count: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     400: {
@@ -1462,16 +1516,67 @@ registry.registerPath({
     200: {
       description: "Paginated list of predictions",
       content: {
-        "application/json": { schema: PredictionsListResponse },
+        "application/json": {
+          schema: PredictionsListResponse,
+          examples: {
+            authenticatedPredictionsPage: {
+              value: {
+                data: [
+                  {
+                    id: "11111111-1111-1111-1111-111111111111",
+                    marketId: "market-abc-123",
+                    question: "Will ETH reach $10k by the end of 2026?",
+                    outcome: "yes",
+                    amount: "100",
+                    txHash: "abc123txhash",
+                    status: "pending",
+                    result: null,
+                    createdAt: "2026-06-27T12:00:00.000Z",
+                    resolutionTime: "2027-01-01T00:00:00.000Z",
+                  },
+                ],
+                nextCursor: "djF8MjR8...",
+              },
+            },
+          },
+        },
       },
     },
     400: {
       description: "Validation error — invalid query parameters",
-      content: { "application/json": { schema: ValidationErrorBody } },
+      content: {
+        "application/json": {
+          schema: ValidationErrorBody,
+          examples: {
+            invalidPredictionsQuery: {
+              value: {
+                error: {
+                  code: "validation_error",
+                  message: "Invalid enum value. Expected 'pending' | 'confirmed' | 'won' | 'lost' | 'claimed'.",
+                  requestId: "req-uuid",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     401: {
       description: "Unauthorized — missing or invalid JWT",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            unauthenticatedPredictionsRequest: {
+              value: {
+                error: {
+                  code: "unauthenticated",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -1488,7 +1593,20 @@ registry.registerPath({
     200: {
       description: "Follow relationship created",
       content: {
-        "application/json": { schema: z.object({ data: FollowResult }) },
+        "application/json": {
+          schema: z.object({ data: FollowResult }),
+          examples: {
+            followCreated: {
+              value: {
+                data: {
+                  follower: "GABC1234567890DEFGHIJKLMNOPQRSTUVWX",
+                  followee: "GXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV",
+                  followedAt: "2026-06-27T12:00:00.000Z",
+                },
+              },
+            },
+          },
+        },
       },
     },
     400: {
@@ -1514,7 +1632,20 @@ registry.registerPath({
     200: {
       description: "Follow relationship removed",
       content: {
-        "application/json": { schema: z.object({ data: FollowResult }) },
+        "application/json": {
+          schema: z.object({ data: FollowResult }),
+          examples: {
+            followRemoved: {
+              value: {
+                data: {
+                  follower: "GABC1234567890DEFGHIJKLMNOPQRSTUVWX",
+                  followee: "GXYZ1234567890ABCDEFGHIJKLMNOPQRSTUV",
+                  followedAt: "2026-06-27T12:00:00.000Z",
+                },
+              },
+            },
+          },
+        },
       },
     },
     400: {
