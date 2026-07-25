@@ -29,6 +29,7 @@ import { socialRouter } from "./routes/social";
 import { adminAuditRouter } from "./routes/admin/audit";
 import { adminMarketsRouter } from "./routes/admin/markets";
 import { adminSchemaVersionsRouter } from "./routes/admin/schema-versions";
+import { adminDbExplainRouter } from "./routes/admin/db/explain";
 import { devicesRouter } from "./routes/devices";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestContextStorage } from "./lib/requestContext";
@@ -44,6 +45,7 @@ import { reconciliationWorker } from "./workers/reconciliationWorker";
 import { rateLimitStatusRouter } from "./routes/rate-limit/status";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
 import { startSlowQueryAlerter, stopSlowQueryAlerter } from "./workers/slowQueryAlerter";
+import { scheduledReportsRouter } from "./routes/reports/scheduled";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
 
@@ -144,6 +146,7 @@ export function createApp(_deps: AppDeps = {}): express.Express {
   app.use("/api/admin/db/explain", adminDbExplainRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
   app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
+  app.use("/api/reports/scheduled", scheduledReportsRouter);
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;

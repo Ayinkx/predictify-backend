@@ -444,3 +444,40 @@ export type NewSchemaVersion = typeof schemaVersions.$inferInsert;
 
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Scheduled Reports
+// ---------------------------------------------------------------------------
+/**
+ * scheduled_reports — user-configured recurring report exports.
+ *
+ * Each row represents a single scheduled report configuration owned by a user.
+ * The scheduler runs these configurations according to their cron expressions.
+ */
+export const scheduledReports = pgTable(
+  "scheduled_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reportType: text("report_type").notNull(),
+    schedule: text("schedule").notNull(),
+    format: text("format").notNull(),
+    filters: jsonb("filters").default({}),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    scheduledReportsUserIdIdx: index("scheduled_reports_user_id_idx").on(t.userId),
+    scheduledReportsActiveIdx: index("scheduled_reports_active_idx").on(t.active),
+  }),
+);
+
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
+export type NewScheduledReport = typeof scheduledReports.$inferInsert;
