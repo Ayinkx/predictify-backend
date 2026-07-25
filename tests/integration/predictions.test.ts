@@ -383,6 +383,17 @@ describe("GET /api/predictions integration", () => {
       expect(res.body.error.code).toBe("validation_error");
     });
 
+    it("returns 400 validation_error for unexpected query parameters", async () => {
+      await seedUser("GUNEXPECTEDQUERYUSER");
+
+      const res = await request(createPredictionsApp())
+        .get("/api/predictions?status=won&unexpected=true")
+        .set("Authorization", `Bearer ${tokenFor("GUNEXPECTEDQUERYUSER")}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("validation_error");
+    });
+
     it("defaults to the standard page size when limit is omitted", async () => {
       const userId = await seedUser("GDEFAULTLIMITUSER");
       await seedMarket({
