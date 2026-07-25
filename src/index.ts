@@ -49,10 +49,7 @@ import { reconciliationWorker } from "./workers/reconciliationWorker";
 import { rateLimitStatusRouter } from "./routes/rate-limit/status";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
 import { startSlowQueryAlerter, stopSlowQueryAlerter } from "./workers/slowQueryAlerter";
-import { createAdminWebhooksRouter } from "./routes/adminWebhooks";
-import { createWebhooksRouter } from "./routes/webhooks";
-import type { IWebhookDispatcher } from "./services/webhookDispatcher";
-import type { WebhookStore } from "./services/webhookStore";
+import { scheduledReportsRouter } from "./routes/reports/scheduled";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
 
@@ -151,10 +148,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
   app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
-  if (options.webhooks) {
-    app.use("/api/webhooks", createWebhooksRouter({ store: options.webhooks.store }));
-    app.use("/api/admin/webhooks", createAdminWebhooksRouter(options.webhooks));
-  }
+  app.use("/api/reports/scheduled", scheduledReportsRouter);
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;

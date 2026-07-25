@@ -446,39 +446,38 @@ export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 
 // ---------------------------------------------------------------------------
-// Admin User Notes
+// Scheduled Reports
 // ---------------------------------------------------------------------------
 /**
- * admin_user_notes — freeform notes written by admins against a user account.
+ * scheduled_reports — user-configured recurring report exports.
  *
- * Each row represents a single note entry. Notes are append-only by design:
- * admins may delete individual notes but cannot silently modify existing ones,
- * preserving a trustworthy audit trail.
- *
- * Indexed on `target_address` + `created_at` so paginated list queries are
- * efficient even as the table grows.
+ * Each row represents a single scheduled report configuration owned by a user.
+ * The scheduler runs these configurations according to their cron expressions.
  */
-export const adminUserNotes = pgTable(
-  "admin_user_notes",
+export const scheduledReports = pgTable(
+  "scheduled_reports",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    /** Stellar address of the user this note is about */
-    targetAddress: text("target_address").notNull(),
-    /** Stellar address of the admin who wrote the note */
-    adminAddress: text("admin_address").notNull(),
-    /** Free-form note body (max 2 000 chars enforced at the route layer) */
-    note: text("note").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reportType: text("report_type").notNull(),
+    schedule: text("schedule").notNull(),
+    format: text("format").notNull(),
+    filters: jsonb("filters").default({}),
+    active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => ({
-    adminUserNotesTargetIdx: index("admin_user_notes_target_idx").on(
-      t.targetAddress,
-      t.createdAt,
-    ),
+    scheduledReportsUserIdIdx: index("scheduled_reports_user_id_idx").on(t.userId),
+    scheduledReportsActiveIdx: index("scheduled_reports_active_idx").on(t.active),
   }),
 );
 
-export type AdminUserNote = typeof adminUserNotes.$inferSelect;
-export type NewAdminUserNote = typeof adminUserNotes.$inferInsert;
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
+export type NewScheduledReport = typeof scheduledReports.$inferInsert;
