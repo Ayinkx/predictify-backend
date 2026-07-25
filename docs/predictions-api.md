@@ -11,6 +11,8 @@ Returns a cursor-paginated list of predictions belonging to the **authenticated 
 Requires a valid JWT in the `Authorization: Bearer <token>` header.
 Returns `401 unauthenticated` when the token is absent, expired, or invalid.
 
+The endpoint also echoes a correlation ID via the `X-Correlation-Id` response header so clients can correlate their own logs with backend access logs.
+
 ---
 
 ### Query Parameters
@@ -118,6 +120,7 @@ GET /api/predictions?limit=20&cursor=djF8MjR8...
 
 - Input validated with Zod at the route boundary before any DB access.
 - `requireAuth` middleware enforces authentication; `req.user.id` is always populated when the handler executes.
+- Structured access logging is emitted for every response via the shared access-log middleware, including a correlation ID and route-specific log name `predictions_access_log`.
 - Structured logging via `pino` with `reqId` (from `x-request-id`) and `userId` on every log entry.
 - Errors bubble to the global `errorHandler` middleware for standardised envelopes.
 
