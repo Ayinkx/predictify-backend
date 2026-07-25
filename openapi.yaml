@@ -40,6 +40,46 @@ components:
             - code
       required:
         - error
+    GlobalLeaderboardEntry:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Internal user UUID
+        stellar_address:
+          type: string
+          description: User's Stellar public key (G…)
+        total_predictions:
+          type: integer
+          minimum: 0
+          description: Total predictions placed across all markets
+        correct_predictions:
+          type: integer
+          minimum: 0
+          description: Predictions whose outcome matched the resolved market outcome
+        accuracy_percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Accuracy as a percentage (0–100), rounded to 2 d.p.
+        total_markets:
+          type: integer
+          minimum: 0
+          description: Number of distinct markets in which the user participated
+        rank:
+          type: integer
+          minimum: 0
+          exclusiveMinimum: true
+          description: 1-based global rank, ordered by accuracy DESC then total_predictions DESC
+      required:
+        - user_id
+        - stellar_address
+        - total_predictions
+        - correct_predictions
+        - accuracy_percentage
+        - total_markets
+        - rank
     DependencyHealth:
       type: object
       properties:
@@ -2711,6 +2751,143 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '429':
           description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/leaderboard/global:
+    get:
+      operationId: getGlobalLeaderboard
+      tags:
+        - Leaderboard
+      summary: Global leaderboard across all markets
+      description: >-
+        Returns a paginated leaderboard ranking all users by their prediction accuracy and volume across **every**
+        market on the platform. Results are cached for 5 minutes. Pass `refresh=true` to force an immediate
+        materialized-view refresh (expensive; intended for admin/debug use).
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 100
+            default: 50
+            description: Maximum entries to return (1–100, default 50)
+          required: false
+          description: Maximum entries to return (1–100, default 50)
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Zero-based row offset for pagination (default 0)
+          required: false
+          description: Zero-based row offset for pagination (default 0)
+          name: offset
+          in: query
+        - schema:
+            type: boolean
+            nullable: true
+            default: false
+            description: When true, triggers REFRESH MATERIALIZED VIEW CONCURRENTLY before querying
+          required: false
+          description: When true, triggers REFRESH MATERIALIZED VIEW CONCURRENTLY before querying
+          name: refresh
+          in: query
+      responses:
+        '200':
+          description: Paginated global leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GlobalLeaderboardEntry'
+                  meta:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      count:
+                        type: integer
+                      refresh:
+                        type: boolean
+                    required:
+                      - limit
+                      - offset
+                      - count
+                      - refresh
+                required:
+                  - data
+                  - meta
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/leaderboard/global/user/{stellarAddress}:
+    get:
+      operationId: getGlobalLeaderboardEntry
+      tags:
+        - Leaderboard
+      summary: Get a single user's global leaderboard entry
+      description: >-
+        Looks up the global leaderboard rank and stats for a specific Stellar address. Returns 404 when the address has
+        never placed a prediction.
+      parameters:
+        - schema:
+            type: string
+            description: The user's Stellar public key (G…)
+          required: true
+          description: The user's Stellar public key (G…)
+          name: stellarAddress
+          in: path
+      responses:
+        '200':
+          description: User's global leaderboard entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/GlobalLeaderboardEntry'
+                required:
+                  - data
+        '404':
+          description: Address not found on the global leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:

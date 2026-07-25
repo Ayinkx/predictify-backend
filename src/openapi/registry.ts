@@ -1930,3 +1930,153 @@ registry.registerPath({
     },
   },
 });
+
+// ── /api/leaderboard/global ──────────────────────────────────────────────────
+
+/**
+ * GlobalLeaderboardEntry — a single row in the global leaderboard.
+ * Aggregated across ALL markets (no time-window filter).
+ */
+const GlobalLeaderboardEntry = registry.register(
+  "GlobalLeaderboardEntry",
+  z
+    .object({
+      user_id: z.string().uuid().describe("Internal user UUID"),
+      stellar_address: z.string().describe("User's Stellar public key (G…)"),
+      total_predictions: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe("Total predictions placed across all markets"),
+      correct_predictions: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe("Predictions whose outcome matched the resolved market outcome"),
+      accuracy_percentage: z
+        .number()
+        .min(0)
+        .max(100)
+        .describe("Accuracy as a percentage (0–100), rounded to 2 d.p."),
+      total_markets: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe("Number of distinct markets in which the user participated"),
+      rank: z
+        .number()
+        .int()
+        .positive()
+        .describe(
+          "1-based global rank, ordered by accuracy DESC then total_predictions DESC",
+        ),
+    })
+    .openapi("GlobalLeaderboardEntry"),
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/api/leaderboard/global",
+  operationId: "getGlobalLeaderboard",
+  tags: ["Leaderboard"],
+  summary: "Global leaderboard across all markets",
+  description:
+    "Returns a paginated leaderboard ranking all users by their prediction " +
+    "accuracy and volume across **every** market on the platform. " +
+    "Results are cached for 5 minutes. " +
+    "Pass `refresh=true` to force an immediate materialized-view refresh " +
+    "(expensive; intended for admin/debug use).",
+  request: {
+    query: z.object({
+      limit: z.coerce
+        .number()
+        .int()
+        .positive()
+        .max(100)
+        .default(50)
+        .describe("Maximum entries to return (1–100, default 50)"),
+      offset: z.coerce
+        .number()
+        .int()
+        .nonnegative()
+        .default(0)
+        .describe("Zero-based row offset for pagination (default 0)"),
+      refresh: z.coerce
+        .boolean()
+        .default(false)
+        .describe(
+          "When true, triggers REFRESH MATERIALIZED VIEW CONCURRENTLY before querying",
+        ),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated global leaderboard",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(GlobalLeaderboardEntry),
+            meta: z.object({
+              limit: z.number().int(),
+              offset: z.number().int(),
+              count: z.number().int(),
+              refresh: z.boolean(),
+            }),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Invalid query parameters",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    500: {
+      description: "Internal server error",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/leaderboard/global/user/{stellarAddress}",
+  operationId: "getGlobalLeaderboardEntry",
+  tags: ["Leaderboard"],
+  summary: "Get a single user's global leaderboard entry",
+  description:
+    "Looks up the global leaderboard rank and stats for a specific Stellar " +
+    "address. Returns 404 when the address has never placed a prediction.",
+  request: {
+    params: z.object({
+      stellarAddress: z
+        .string()
+        .describe("The user's Stellar public key (G…)"),
+    }),
+  },
+  responses: {
+    200: {
+      description: "User's global leaderboard entry",
+      content: {
+        "application/json": {
+          schema: z.object({ data: GlobalLeaderboardEntry }),
+        },
+      },
+    },
+    404: {
+      description: "Address not found on the global leaderboard",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    500: {
+      description: "Internal server error",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
