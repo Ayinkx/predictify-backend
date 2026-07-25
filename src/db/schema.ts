@@ -118,10 +118,12 @@ export const markets = pgTable("markets", {
   featuredAt: timestamp("featured_at", { withTimezone: true }),
   featuredBy: text("featured_by"),
   forceFinalized: boolean("force_finalized").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export const marketAuditLog = pgTable("market_audit_log", {
-  id: uuid("id").primaryKey().defaultRandom(),
   marketId: text("market_id")
     .notNull()
     .references(() => markets.id),

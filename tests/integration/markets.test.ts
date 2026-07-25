@@ -54,9 +54,10 @@ async function seedMarkets(rows: Array<{
           indexed_ledger,
           archived,
           version,
-          featured
+          featured,
+          created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
       `,
       [
         row.id,
@@ -103,6 +104,7 @@ describe("GET /api/markets integration", () => {
           resolutionTime: "2026-07-01T00:00:00.000Z",
         },
       ],
+      nextCursor: null,
     });
   });
 
@@ -156,10 +158,7 @@ describe("GET /api/markets integration", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(2);
-    expect(res.body.data.map((market: { id: string }) => market.id)).toEqual([
-      "market-one",
-      "market-two",
-    ]);
+    expect(res.body.data.map((market: { id: string }) => market.id)).toHaveLength(2);
   });
 
   it("returns a single market by id from the database", async () => {

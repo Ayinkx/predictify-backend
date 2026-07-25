@@ -1366,10 +1366,53 @@ paths:
       operationId: listMarkets
       tags:
         - Markets
-      summary: List all markets
+      summary: List markets with cursor pagination
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: cursor
+          in: query
+          description: Opaque cursor from the previous page's nextCursor
+        - schema:
+            type: string
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: category
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: tag
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: sort
+          in: query
+        - schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          required: false
+          name: order
+          in: query
       responses:
         '200':
-          description: Array of markets
+          description: Paginated array of markets
           content:
             application/json:
               schema:
@@ -1379,8 +1422,13 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Market'
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor for the next page, or null on the last page
                 required:
                   - data
+                  - nextCursor
               examples:
                 default:
                   value:
@@ -1401,6 +1449,13 @@ paths:
                           resolutionSource: community
                         version: 2
                         createdAt: '2026-02-14T07:30:00.000Z'
+                    nextCursor: 'djF8MjR8...'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
   /api/markets/search:
     get:
       operationId: searchMarkets
