@@ -315,6 +315,32 @@ describe("accessLog middleware", () => {
     );
   });
 
+  it("emits a markets_access_log entry when originalUrl starts with /api/markets", async () => {
+    const req = makeReq({
+      headers: { "x-correlation-id": "markets-log-test-id" },
+      method: "GET",
+      path: "/api/markets",
+      ip: "10.0.0.1",
+    });
+    const res = makeRes();
+    const next: NextFunction = jest.fn();
+
+    accessLog(req, res, next);
+    await fireFinish(res);
+
+    expect(loggerInfoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: "markets-log-test-id",
+        method: "GET",
+        path: "/api/markets",
+        statusCode: 200,
+        ip: "10.0.0.1",
+        durationMs: expect.any(Number),
+      }),
+      "markets_access_log",
+    );
+  });
+
   it("logs the correct statusCode for a 400 response", async () => {
     const req = makeReq({ headers: { "x-correlation-id": "bad-req-id" } });
     const res = makeRes();

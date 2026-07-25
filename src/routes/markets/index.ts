@@ -9,6 +9,7 @@ import {
 import { searchMarkets } from "../../repositories/marketRepository";
 import { requireAdmin, AuthenticatedRequest } from "../../middleware/auth";
 import { rateLimitAnon } from "../../middleware/rateLimitAnon";
+import { accessLog } from "../../middleware/accessLog";
 import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
 import { RouteErrorFactory } from "../../errors";
@@ -30,6 +31,7 @@ import {
 
 export const marketsRouter = Router();
 
+marketsRouter.use(accessLog);
 marketsRouter.use(rateLimitAnon);
 marketsRouter.use("/tags", tagsRouter);
 marketsRouter.use("/recommendations", recommendationsRouter);
