@@ -3,6 +3,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
+import { accessLog } from "../middleware/accessLog";
 import { getPredictionExplanation } from "../services/predictionExplainService";
 import cancelRouter from "./predictions/cancel";
 import { createShareRouter } from "./predictions/share";
@@ -13,6 +14,8 @@ import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
 import type { AuthenticatedRequest } from "../middleware/auth";
 
 export const predictionsRouter = Router();
+
+predictionsRouter.use(accessLog);
 
 // ── Public sub-routers (no auth required) ────────────────────────────────
 // Must be registered before the requireAuth guard so bots / crawlers can
