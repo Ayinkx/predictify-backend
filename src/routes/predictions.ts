@@ -1,7 +1,6 @@
   
   
 import { Router, Request, Response, NextFunction } from "express";
-import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
 import { getPredictionExplanation } from "../services/predictionExplainService";
 import cancelRouter from "./predictions/cancel";
@@ -9,8 +8,9 @@ import { createShareRouter } from "./predictions/share";
 import { listPredictions } from "../repositories/predictionRepo";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
-import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
+import { clampLimit } from "../utils/cursor";
 import type { AuthenticatedRequest } from "../middleware/auth";
+import { listPredictionsQuerySchema } from "../validators/predictions";
 
 export const predictionsRouter = Router();
 
@@ -28,23 +28,6 @@ predictionsRouter.use("/", cancelRouter);
 
 // ── Authenticated routes ──────────────────────────────────────────────────
 predictionsRouter.use(requireAuth);
-
-// Zod schema for GET /api/predictions query parameters.
-// Validated at the route boundary before any DB access.
-const listQuerySchema = z.object({
-  /** Filter by market ID (optional). */
-  marketId: z.string().min(1).max(128).optional(),
-  /** Filter by prediction lifecycle status (optional). */
-  status: z
-    .enum(["pending", "confirmed", "won", "lost", "claimed"])
-    .optional(),
-  /** Filter by chosen outcome value (optional). */
-  outcome: z.string().min(1).max(64).optional(),
-  /** Opaque cursor from the previous page (optional). */
-  cursor: z.string().optional(),
-  /** Number of rows to return per page (default 20, max 100). */
-  limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_PAGE_SIZE),
-});
 
 /**
  * GET /api/predictions
@@ -78,7 +61,7 @@ predictionsRouter.get(
 
     try {
       // ── Input validation ─────────────────────────────────────────────────
-      const queryParse = listQuerySchema.safeParse(req.query);
+      const queryParse = listPredictionsQuerySchema.safeParse(req.query);
       if (!queryParse.success) {
         logger.warn(
           { reqId, issues: queryParse.error.issues },
