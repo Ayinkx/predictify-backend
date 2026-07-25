@@ -236,6 +236,62 @@ components:
         - rank
         - stellarAddress
         - score
+    FeaturedMarket:
+      type: object
+      properties:
+        id:
+          type: string
+        question:
+          type: string
+        status:
+          type: string
+        resolutionOutcome:
+          type: string
+          nullable: true
+        resolutionTime:
+          type: string
+          format: date-time
+        winningOutcome:
+          type: string
+          nullable: true
+        metadata:
+          nullable: true
+        featuredAt:
+          type: string
+          nullable: true
+          format: date-time
+        featuredBy:
+          type: string
+          nullable: true
+      required:
+        - id
+        - question
+        - status
+        - resolutionTime
+        - featuredAt
+        - featuredBy
+    FeatureMarketResponse:
+      type: object
+      properties:
+        marketId:
+          type: string
+        featured:
+          type: boolean
+        featuredAt:
+          type: string
+          nullable: true
+          format: date-time
+        featuredBy:
+          type: string
+          nullable: true
+        changed:
+          type: boolean
+      required:
+        - marketId
+        - featured
+        - featuredAt
+        - featuredBy
+        - changed
     NotificationCategory:
       type: string
       enum:
@@ -394,8 +450,154 @@ components:
         - id
         - action
         - createdAt
+    CheckStatus:
+      type: string
+      enum:
+        - ok
+        - degraded
+        - error
+    DbPoolStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total connections in pool
+        idle:
+          type: integer
+          description: Idle (available) connections
+        waiting:
+          type: integer
+          description: Clients waiting for a connection
+      required:
+        - total
+        - idle
+        - waiting
+    DbPoolCheck:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CheckStatus'
+        latencyMs:
+          type: integer
+        stats:
+          $ref: '#/components/schemas/DbPoolStats'
+        error:
+          type: string
+      required:
+        - status
+        - latencyMs
+        - stats
+    IndexerCheck:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CheckStatus'
+        latencyMs:
+          type: integer
+        lastIndexedLedger:
+          type: integer
+          nullable: true
+        chainTip:
+          type: integer
+          nullable: true
+        lagLedgers:
+          type: integer
+          nullable: true
+        error:
+          type: string
+      required:
+        - status
+        - latencyMs
+        - lastIndexedLedger
+        - chainTip
+        - lagLedgers
+    RpcCheck:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CheckStatus'
+        latencyMs:
+          type: integer
+        latestLedger:
+          type: integer
+          nullable: true
+        error:
+          type: string
+      required:
+        - status
+        - latencyMs
+        - latestLedger
+    AdminHealthDetail:
+      type: object
+      properties:
+        dbPool:
+          $ref: '#/components/schemas/DbPoolCheck'
+        indexer:
+          $ref: '#/components/schemas/IndexerCheck'
+        rpc:
+          $ref: '#/components/schemas/RpcCheck'
+        checkedAt:
+          type: string
+          format: date-time
+      required:
+        - dbPool
+        - indexer
+        - rpc
+        - checkedAt
+    JwkKey:
+      type: object
+      properties:
+        kid:
+          type: string
+          description: Key identifier
+        alg:
+          type: string
+          description: Signing algorithm
+          enum:
+            - HS256
+        kty:
+          type: string
+          description: Key type
+          enum:
+            - oct
+        use:
+          type: string
+          description: Intended use
+          enum:
+            - sig
+      required:
+        - kid
+        - alg
+        - kty
+        - use
+    JwksResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/JwkKey'
+      required:
+        - keys
   parameters: {}
 paths:
+  /.well-known/jwks.json:
+    get:
+      operationId: getJwks
+      tags:
+        - JWKS
+      summary: JSON Web Key Set endpoint
+      description: >-
+        Returns the JSON Web Key Set containing metadata for all available JWT signing keys.
+        Follows RFC 7517 (JWK) and RFC 7513 (JWKS) where applicable, adapted for HMAC-based signing (HS256).
+        The actual secret values are never exposed - only key metadata is returned.
+      responses:
+        '200':
+          description: JWKS response with key metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwksResponse'
   /health:
     get:
       operationId: healthCheck
@@ -560,6 +762,33 @@ paths:
           description: Logged out
         '400':
           description: Missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/markets/recommendations:
+    get:
+      tags:
+        - Markets
+      summary: Get personalized market recommendations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of recommended markets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Market'
+                required:
+                  - data
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -799,6 +1028,148 @@ paths:
                   - data
         '404':
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/markets/featured:
+    get:
+      tags:
+        - Markets
+      summary: List currently featured markets for the home page
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+          required: false
+          name: limit
+          in: query
+      responses:
+        '200':
+          description: Featured markets ordered by most recently featured first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeaturedMarket'
+                required:
+                  - data
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/markets/{id}/feature:
+    post:
+      tags:
+        - Admin
+      summary: Feature a market on the home page (admin only, idempotent)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Market featured (or already featured — `changed` indicates mutation)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FeatureMarketResponse'
+                required:
+                  - data
+        '400':
+          description: Validation error or market is archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    delete:
+      tags:
+        - Admin
+      summary: Unfeature a market from the home page (admin only, idempotent)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Market unfeatured (or already unfeatured — `changed` indicates mutation)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FeatureMarketResponse'
+                required:
+                  - data
+        '400':
+          description: Validation error or market is archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
           content:
             application/json:
               schema:
@@ -1128,6 +1499,102 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '403':
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/audit/export:
+    get:
+      tags:
+        - Admin
+      summary: Export audit log as NDJSON
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: action
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: actor
+          in: query
+        - schema:
+            type: string
+            format: date-time
+          required: false
+          name: startDate
+          in: query
+        - schema:
+            type: string
+            format: date-time
+          required: false
+          name: endDate
+          in: query
+      responses:
+        '200':
+          description: Audit log export stream in NDJSON format
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/health/detail:
+    get:
+      tags:
+        - Admin
+      summary: Detailed runtime health (admin only)
+      description: >-
+        Returns DB pool stats, indexer cursor/lag, and Soroban RPC status. Returns 207 when any sub-check is degraded or
+        errored.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All checks healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHealthDetail'
+        '207':
+          description: One or more checks degraded or errored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHealthDetail'
+        '403':
+          description: Forbidden — missing or non-admin JWT
           content:
             application/json:
               schema:
