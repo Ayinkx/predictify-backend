@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { metricsMiddleware } from "./metrics/httpMetrics";
+import { metricsHistogramMiddleware } from "./middleware/metricsHistogram";
 import { idempotency } from "./middleware/idempotency";
 import { defaultBodySizeLimitMiddleware, webhookBodySizeLimitMiddleware } from "./middleware/bodySize";
 import { healthRouter } from "./routes/health";
@@ -115,6 +116,7 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use(defaultBodySizeLimitMiddleware);
 
   app.use(metricsMiddleware);
+  app.use(metricsHistogramMiddleware);
   app.use("/health", healthRouter);
   app.use("/healthz/dependencies", dependenciesRouter);
   app.use("/api/health/ready", createReadyRouter({ db, redis: redisConnection }));

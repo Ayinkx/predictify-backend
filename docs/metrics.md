@@ -38,6 +38,8 @@ Collected by `prom-client`'s `collectDefaultMetrics`:
 | `signup_anomaly_scans_total` | Counter | — | Signup-rate anomaly scans completed ([signup-anomaly.md](signup-anomaly.md)) |
 | `signup_anomalies_detected_total` | Counter | `severity` | Anomalous signup buckets detected (`warning`, `critical`) |
 | `signup_anomaly_top_score` | Gauge | — | Highest modified z-score from the most recent signup scan |
+| `endpoint_requests_total` | Counter | `method`, `route`, `status` | Per-endpoint request count |
+| `endpoint_request_duration_seconds` | Histogram | `method`, `route`, `status` | Per-endpoint request duration in seconds, bucketed |
 
 ## Content type
 
