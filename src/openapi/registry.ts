@@ -1519,23 +1519,23 @@ registry.registerPath({
         "application/json": {
           schema: PredictionsListResponse,
           examples: {
-            authenticatedPredictionsPage: {
+            success: {
               value: {
                 data: [
                   {
-                    id: "11111111-1111-1111-1111-111111111111",
-                    marketId: "market-abc-123",
-                    question: "Will ETH reach $10k by the end of 2026?",
+                    id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                    marketId: "market_123",
+                    question: "Will Bitcoin hit 100k in 2026?",
                     outcome: "yes",
-                    amount: "100",
-                    txHash: "abc123txhash",
-                    status: "pending",
-                    result: null,
-                    createdAt: "2026-06-27T12:00:00.000Z",
-                    resolutionTime: "2027-01-01T00:00:00.000Z",
+                    amount: "50.0000000",
+                    txHash: "8c253240be423ef8109d94101e40a02bc8f297b819f0ff4f4c20b8e906059e66",
+                    status: "won",
+                    result: "yes",
+                    createdAt: "2026-05-01T12:00:00.000Z",
+                    resolutionTime: "2026-06-01T12:00:00.000Z",
                   },
                 ],
-                nextCursor: "djF8MjR8...",
+                nextCursor: "cursor_abc123",
               },
             },
           },
@@ -1548,12 +1548,11 @@ registry.registerPath({
         "application/json": {
           schema: ValidationErrorBody,
           examples: {
-            invalidPredictionsQuery: {
+            invalidLimit: {
               value: {
                 error: {
-                  code: "validation_error",
-                  message: "Invalid enum value. Expected 'pending' | 'confirmed' | 'won' | 'lost' | 'claimed'.",
-                  requestId: "req-uuid",
+                  code: "VALIDATION_ERROR",
+                  details: "Limit must be between 1 and 100",
                 },
               },
             },
@@ -1567,10 +1566,11 @@ registry.registerPath({
         "application/json": {
           schema: ErrorBody,
           examples: {
-            unauthenticatedPredictionsRequest: {
+            unauthorized: {
               value: {
                 error: {
-                  code: "unauthenticated",
+                  code: "UNAUTHORIZED",
+                  requestId: "req_xyz789",
                 },
               },
             },
