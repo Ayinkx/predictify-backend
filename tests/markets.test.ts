@@ -89,6 +89,50 @@ describe("GET /api/markets", () => {
     });
   });
 
+  it("returns an ETag header and supports conditional revalidation", async () => {
+    setDbForTests(createMarketDb([
+      {
+        id: "market-1",
+        question: "Will Predictify ship real market reads?",
+        status: "active",
+        resolutionTime: new Date("2026-07-01T00:00:00.000Z"),
+        version: 1,
+      },
+    ]));
+
+    const first = await request(createApp()).get("/api/markets");
+
+    expect(first.status).toBe(200);
+    expect(first.headers["etag"]).toMatch(/^"[0-9a-f]{64}"$/);
+    expect(first.headers["cache-control"]).toBe("no-cache");
+
+    const second = await request(createApp())
+      .get("/api/markets")
+      .set("If-None-Match", first.headers["etag"] as string);
+
+    expect(second.status).toBe(304);
+    expect(second.text).toBe("");
+  });
+
+  it("returns 200 for a stale If-None-Match value", async () => {
+    setDbForTests(createMarketDb([
+      {
+        id: "market-1",
+        question: "Will Predictify ship real market reads?",
+        status: "active",
+        resolutionTime: new Date("2026-07-01T00:00:00.000Z"),
+        version: 1,
+      },
+    ]));
+
+    const res = await request(createApp())
+      .get("/api/markets")
+      .set("If-None-Match", '"000000000000000000000000000000000000000000000000000000000000dead"');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("data");
+  });
+
   it("returns empty array when no markets exist", async () => {
     setDbForTests(createMarketDb([]));
 

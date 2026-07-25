@@ -34,6 +34,26 @@ non-archived markets related to terms from the user's prediction history, and
 falls back to recent active non-archived markets when there is no usable history
 or no related market is found.
 
+### ETag support
+
+`GET /api/markets` supports conditional revalidation through `ETag` and `If-None-Match`.
+On a matching revalidation request, the route responds with `304 Not Modified`
+and does not return a response body. Clients should treat the response as a
+cache revalidation success and reuse the previously cached representation.
+
+### Conditional requests and caching
+
+The public market listing endpoint supports strong ETags. Clients may send an
+`If-None-Match` header with the latest ETag to receive a `304 Not Modified`
+response without a body when the market list has not changed.
+
+Example:
+
+```http
+GET /api/markets
+If-None-Match: "<etag>"
+```
+
 ### Errors
 
 - `401 Unauthorized` when the bearer token is missing, malformed, invalid, or
