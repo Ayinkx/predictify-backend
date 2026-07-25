@@ -196,7 +196,13 @@ marketsRouter.get("/:id", async (req, res, next) => {
       { reqId, correlationId: reqId, marketId },
       "markets_get_success",
     );
-    return res.json({ data: market });
+
+    const responsePayload = { data: market };
+    if (conditionalGet(responsePayload, req, res)) {
+      return;
+    }
+
+    return res.json(responsePayload);
   } catch (e) {
     logger.error(
       { reqId, correlationId: reqId, marketId: req.params.id, err: e },

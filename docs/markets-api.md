@@ -41,6 +41,19 @@ On a matching revalidation request, the route responds with `304 Not Modified`
 and does not return a response body. Clients should treat the response as a
 cache revalidation success and reuse the previously cached representation.
 
+### Conditional requests and caching
+
+The public market listing endpoint supports strong ETags. Clients may send an
+`If-None-Match` header with the latest ETag to receive a `304 Not Modified`
+response without a body when the market list has not changed.
+
+Example:
+
+```http
+GET /api/markets
+If-None-Match: "<etag>"
+```
+
 ### Errors
 
 - `401 Unauthorized` when the bearer token is missing, malformed, invalid, or
