@@ -116,6 +116,44 @@ components:
         - correlationId
         - checkedAt
         - dependencies
+    UsersHealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - down
+        correlationId:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - ok
+                    - down
+                latencyMs:
+                  type: number
+                error:
+                  type: string
+              required:
+                - status
+                - latencyMs
+          required:
+            - database
+      required:
+        - status
+        - correlationId
+        - checkedAt
+        - dependencies
     JwkKey:
       type: object
       properties:
@@ -330,6 +368,64 @@ components:
         - rank
         - stellarAddress
         - score
+    AnonRateLimitStatus:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - anonymous
+            clientIp:
+              type: string
+            limit:
+              type: integer
+            used:
+              type: integer
+            remaining:
+              type: integer
+            windowMs:
+              type: integer
+            resetAt:
+              type: string
+              format: date-time
+          required:
+            - type
+            - clientIp
+            - limit
+            - used
+            - remaining
+            - windowMs
+            - resetAt
+      required:
+        - data
+    AuthRateLimitStatus:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - authenticated
+            limit:
+              type: integer
+            windowMs:
+              type: integer
+            bypasses:
+              type: boolean
+              enum:
+                - true
+          required:
+            - type
+            - limit
+            - windowMs
+            - bypasses
+      required:
+        - data
     FeaturedMarket:
       type: object
       properties:
@@ -386,6 +482,63 @@ components:
         - featuredAt
         - featuredBy
         - changed
+    FeatureFlag:
+      type: object
+      properties:
+        key:
+          type: string
+        enabled:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - key
+        - enabled
+        - description
+        - updatedAt
+    FeatureFlagListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureFlag'
+      required:
+        - data
+    FeatureFlagResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/FeatureFlag'
+      required:
+        - data
+    CreateFeatureFlagRequest:
+      type: object
+      properties:
+        key:
+          type: string
+        enabled:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+          maxLength: 280
+      required:
+        - key
+        - enabled
+    UpdateFeatureFlagRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+          maxLength: 280
     NotificationCategory:
       type: string
       enum:
@@ -725,6 +878,109 @@ components:
         - id
         - action
         - createdAt
+    PluginView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        config:
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - enabled
+        - createdAt
+        - updatedAt
+    CreatePluginRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        enabled:
+          type: boolean
+        config:
+          type: object
+          additionalProperties:
+            nullable: true
+      required:
+        - name
+    UpdatePluginRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
+        enabled:
+          type: boolean
+        config:
+          type: object
+          additionalProperties:
+            nullable: true
+    DeletePluginResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+    AdminRateLimitInspect:
+      type: object
+      properties:
+        address:
+          type: string
+          description: Target Stellar address
+        limit:
+          type: integer
+          description: Configured request cap in the window
+        used:
+          type: integer
+          description: Requests currently active in the window
+        remaining:
+          type: integer
+          description: Requests remaining in the current window
+        windowMs:
+          type: integer
+          description: Sliding-window length in milliseconds
+        resetAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp when the window resets
+      required:
+        - address
+        - limit
+        - used
+        - remaining
+        - windowMs
+        - resetAt
     CheckStatus:
       type: string
       enum:
@@ -819,6 +1075,73 @@ components:
         - indexer
         - rpc
         - checkedAt
+    QuotaRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        quotaType:
+          type: string
+        requestedValue:
+          type: integer
+        reason:
+          type: string
+        status:
+          type: string
+        reviewedBy:
+          type: string
+          nullable: true
+        reviewNotes:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - quotaType
+        - requestedValue
+        - reason
+        - status
+        - reviewedBy
+        - reviewNotes
+        - reviewedAt
+        - createdAt
+        - updatedAt
+    QuotaType:
+      type: string
+      enum:
+        - prediction_limit
+        - daily_prediction_limit
+        - claim_limit
+    CreateQuotaRequest:
+      type: object
+      properties:
+        quotaType:
+          $ref: '#/components/schemas/QuotaType'
+        requestedValue:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 1000
+      required:
+        - quotaType
+        - requestedValue
+        - reason
   parameters: {}
 paths:
   /health:
@@ -1060,33 +1383,6 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
   /api/markets/recommendations:
     get:
-      tags:
-        - Markets
-      summary: Get personalized market recommendations
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Array of recommended markets
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Market'
-                required:
-                  - data
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBody'
-  /api/markets:
-    get:
       operationId: getMarketRecommendations
       tags:
         - Markets
@@ -1118,53 +1414,10 @@ paths:
       operationId: listMarkets
       tags:
         - Markets
-      summary: List markets with cursor pagination
-      parameters:
-        - schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          required: false
-          name: limit
-          in: query
-        - schema:
-            type: string
-          required: false
-          name: cursor
-          in: query
-          description: Opaque cursor from the previous page's nextCursor
-        - schema:
-            type: string
-          required: false
-          name: status
-          in: query
-        - schema:
-            type: string
-          required: false
-          name: category
-          in: query
-        - schema:
-            type: string
-          required: false
-          name: tag
-          in: query
-        - schema:
-            type: string
-          required: false
-          name: sort
-          in: query
-        - schema:
-            type: string
-            enum:
-              - asc
-              - desc
-          required: false
-          name: order
-          in: query
+      summary: List all markets
       responses:
         '200':
-          description: Paginated array of markets
+          description: Array of markets
           content:
             application/json:
               schema:
@@ -1174,13 +1427,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Market'
-                  nextCursor:
-                    type: string
-                    nullable: true
-                    description: Opaque cursor for the next page, or null on the last page
                 required:
                   - data
-                  - nextCursor
               examples:
                 default:
                   value:
@@ -1201,13 +1449,6 @@ paths:
                           resolutionSource: community
                         version: 2
                         createdAt: '2026-02-14T07:30:00.000Z'
-                    nextCursor: 'djF8MjR8...'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBody'
   /api/markets/search:
     get:
       operationId: searchMarkets
@@ -1501,8 +1742,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /api/rate-limit/status:
+    get:
+      operationId: getRateLimitStatus
+      tags:
+        - Rate Limiting
+      summary: Get the current anonymous rate-limit status for the caller
+      responses:
+        '200':
+          description: Rate-limit status (type differs for anonymous vs authenticated callers)
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AnonRateLimitStatus'
+                  - $ref: '#/components/schemas/AuthRateLimitStatus'
   /api/markets/featured:
     get:
+      operationId: getFeaturedMarkets
       tags:
         - Markets
       summary: List currently featured markets for the home page
@@ -1536,6 +1793,7 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
   /api/admin/markets/{id}/feature:
     post:
+      operationId: featureAdminMarket
       tags:
         - Admin
       summary: Feature a market on the home page (admin only, idempotent)
@@ -1590,6 +1848,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
     delete:
+      operationId: unfeatureAdminMarket
       tags:
         - Admin
       summary: Unfeature a market from the home page (admin only, idempotent)
@@ -1633,6 +1892,246 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '404':
           description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/feature-flags:
+    get:
+      operationId: listAdminFeatureFlags
+      tags:
+        - Admin
+      summary: List configured feature flags
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of feature flags
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    post:
+      operationId: createAdminFeatureFlag
+      tags:
+        - Admin
+      summary: Create a new feature flag
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFeatureFlagRequest'
+      responses:
+        '201':
+          description: Feature flag created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          description: Feature flag already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/feature-flags/{key}:
+    get:
+      operationId: getAdminFeatureFlag
+      tags:
+        - Admin
+      summary: Get a configured feature flag
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+          required: true
+          name: key
+          in: path
+      responses:
+        '200':
+          description: Feature flag details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagResponse'
+        '400':
+          description: Invalid feature flag key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Feature flag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    patch:
+      operationId: updateAdminFeatureFlag
+      tags:
+        - Admin
+      summary: Update a feature flag
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+          required: true
+          name: key
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFeatureFlagRequest'
+      responses:
+        '200':
+          description: Feature flag updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Feature flag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    delete:
+      operationId: deleteAdminFeatureFlag
+      tags:
+        - Admin
+      summary: Delete a feature flag
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+          required: true
+          name: key
+          in: path
+      responses:
+        '204':
+          description: Feature flag deleted
+        '400':
+          description: Invalid feature flag key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Feature flag not found
           content:
             application/json:
               schema:
@@ -1903,18 +2402,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PredictionsListResponse'
+              examples:
+                success:
+                  value:
+                    data:
+                      - id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                        marketId: market_123
+                        question: Will Bitcoin hit 100k in 2026?
+                        outcome: 'yes'
+                        amount: '50.0000000'
+                        txHash: 8c253240be423ef8109d94101e40a02bc8f297b819f0ff4f4c20b8e906059e66
+                        status: won
+                        result: 'yes'
+                        createdAt: '2026-05-01T12:00:00.000Z'
+                        resolutionTime: '2026-06-01T12:00:00.000Z'
+                    nextCursor: cursor_abc123
         '400':
           description: Validation error — invalid query parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorBody'
+              examples:
+                invalidLimit:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      details: Limit must be between 1 and 100
         '401':
           description: Unauthorized — missing or invalid JWT
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                unauthorized:
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      requestId: req_xyz789
   /api/users/{addr}/follow:
     post:
       operationId: followUser
@@ -2121,6 +2647,7 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
   /api/admin/audit/export:
     get:
+      operationId: exportAdminAuditLog
       tags:
         - Admin
       summary: Export audit log as NDJSON
@@ -2180,8 +2707,318 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /api/admin/plugins:
+    get:
+      operationId: listAdminPlugins
+      tags:
+        - Admin
+      summary: List all plugins (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
+          required: false
+          name: enabled
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+          required: false
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: Paginated list of plugins
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PluginView'
+                  total:
+                    type: integer
+                required:
+                  - data
+                  - total
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    post:
+      operationId: createAdminPlugin
+      tags:
+        - Admin
+      summary: Create a new plugin (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePluginRequest'
+      responses:
+        '201':
+          description: Plugin created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PluginView'
+                required:
+                  - data
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          description: Plugin name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/plugins/{id}:
+    get:
+      operationId: getAdminPlugin
+      tags:
+        - Admin
+      summary: Get a single plugin by ID (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Plugin details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PluginView'
+                required:
+                  - data
+        '400':
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    patch:
+      operationId: updateAdminPlugin
+      tags:
+        - Admin
+      summary: Update a plugin (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePluginRequest'
+      responses:
+        '200':
+          description: Plugin updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PluginView'
+                required:
+                  - data
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    delete:
+      operationId: deleteAdminPlugin
+      tags:
+        - Admin
+      summary: Delete a plugin (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Plugin deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeletePluginResult'
+                required:
+                  - data
+        '400':
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Plugin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/admin/rate-limit/inspect/{address}:
+    get:
+      operationId: inspectAdminRateLimit
+      tags:
+        - Admin
+      summary: Inspect current rate-limit state for an address (admin only)
+      description: Returns the current sliding-window rate-limit usage for a target Stellar address. Admin-only and read-only.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current rate-limit state for the requested address
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AdminRateLimitInspect'
+                required:
+                  - data
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or non-admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
   /api/admin/health/detail:
     get:
+      operationId: getAdminHealthDetail
       tags:
         - Admin
       summary: Detailed runtime health (admin only)
@@ -2211,6 +3048,241 @@ paths:
                 $ref: '#/components/schemas/ErrorBody'
         '429':
           description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/quota/requests:
+    post:
+      operationId: createQuotaRequest
+      tags:
+        - Quota
+      summary: Submit a quota increase request
+      description: >-
+        Authenticated users can request an increase to their rate limits. Each user may have at most 5 pending requests
+        at a time.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuotaRequest'
+      responses:
+        '201':
+          description: Quota request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/QuotaRequest'
+                required:
+                  - data
+        '400':
+          description: Validation error or too many pending requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    get:
+      operationId: listQuotaRequests
+      tags:
+        - Quota
+      summary: List quota requests for the authenticated user
+      description: Returns all quota requests submitted by the authenticated user, newest first.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of quota requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuotaRequest'
+                required:
+                  - data
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/leaderboard/global:
+    get:
+      operationId: getGlobalLeaderboard
+      tags:
+        - Leaderboard
+      summary: Global leaderboard across all markets
+      description: >-
+        Returns a paginated leaderboard ranking all users by their prediction accuracy and volume across **every**
+        market on the platform. Results are cached for 5 minutes. Pass `refresh=true` to force an immediate
+        materialized-view refresh (expensive; intended for admin/debug use).
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 100
+            default: 50
+            description: Maximum entries to return (1–100, default 50)
+          required: false
+          description: Maximum entries to return (1–100, default 50)
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Zero-based row offset for pagination (default 0)
+          required: false
+          description: Zero-based row offset for pagination (default 0)
+          name: offset
+          in: query
+        - schema:
+            type: boolean
+            nullable: true
+            default: false
+            description: When true, triggers REFRESH MATERIALIZED VIEW CONCURRENTLY before querying
+          required: false
+          description: When true, triggers REFRESH MATERIALIZED VIEW CONCURRENTLY before querying
+          name: refresh
+          in: query
+      responses:
+        '200':
+          description: Paginated global leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GlobalLeaderboardEntry'
+                  meta:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      count:
+                        type: integer
+                      refresh:
+                        type: boolean
+                    required:
+                      - limit
+                      - offset
+                      - count
+                      - refresh
+                required:
+                  - data
+                  - meta
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /api/leaderboard/global/user/{stellarAddress}:
+    get:
+      operationId: getGlobalLeaderboardEntry
+      tags:
+        - Leaderboard
+      summary: Get a single user's global leaderboard entry
+      description: >-
+        Looks up the global leaderboard rank and stats for a specific Stellar address. Returns 404 when the address has
+        never placed a prediction.
+      parameters:
+        - schema:
+            type: string
+            description: The user's Stellar public key (G…)
+          required: true
+          description: The user's Stellar public key (G…)
+          name: stellarAddress
+          in: path
+      responses:
+        '200':
+          description: User's global leaderboard entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/GlobalLeaderboardEntry'
+                required:
+                  - data
+        '404':
+          description: Address not found on the global leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:

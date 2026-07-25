@@ -1462,16 +1462,67 @@ registry.registerPath({
     200: {
       description: "Paginated list of predictions",
       content: {
-        "application/json": { schema: PredictionsListResponse },
+        "application/json": {
+          schema: PredictionsListResponse,
+          examples: {
+            success: {
+              value: {
+                data: [
+                  {
+                    id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                    marketId: "market_123",
+                    question: "Will Bitcoin hit 100k in 2026?",
+                    outcome: "yes",
+                    amount: "50.0000000",
+                    txHash: "8c253240be423ef8109d94101e40a02bc8f297b819f0ff4f4c20b8e906059e66",
+                    status: "won",
+                    result: "yes",
+                    createdAt: "2026-05-01T12:00:00.000Z",
+                    resolutionTime: "2026-06-01T12:00:00.000Z",
+                  },
+                ],
+                nextCursor: "cursor_abc123",
+              },
+            },
+          },
+        },
       },
     },
     400: {
       description: "Validation error — invalid query parameters",
-      content: { "application/json": { schema: ValidationErrorBody } },
+      content: {
+        "application/json": {
+          schema: ValidationErrorBody,
+          examples: {
+            invalidLimit: {
+              value: {
+                error: {
+                  code: "VALIDATION_ERROR",
+                  details: "Limit must be between 1 and 100",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     401: {
       description: "Unauthorized — missing or invalid JWT",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            unauthorized: {
+              value: {
+                error: {
+                  code: "UNAUTHORIZED",
+                  requestId: "req_xyz789",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
