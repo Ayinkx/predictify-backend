@@ -87,6 +87,17 @@ export const predictionsRequestDuration = new Histogram({
   name: "predictions_request_duration_seconds",
   help: "Duration of /api/predictions endpoint handlers in seconds",
   labelNames: ["handler", "outcome"] as const,
+export const usersEndpointRequestsTotal = new Counter({
+  name: "users_endpoint_requests_total",
+  help: "Total number of requests to /api/users endpoints, segmented by method, route, and status",
+  labelNames: ["method", "route", "status"] as const,
+  registers: [register],
+});
+
+export const usersEndpointDuration = new Histogram({
+  name: "users_endpoint_duration_seconds",
+  help: "Request duration in seconds for /api/users endpoints, segmented by method, route, and status",
+  labelNames: ["method", "route", "status"] as const,
   buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
   registers: [register],
 });

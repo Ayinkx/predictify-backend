@@ -70,7 +70,7 @@ function sanitizeRequestId(raw: string): string | undefined {
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
-export function createApp(options: CreateAppOptions = {}): express.Express {
+export function createApp(_options: CreateAppOptions = {}): express.Express {
   const app = express();
 
   app.set("etag", false);
