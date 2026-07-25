@@ -48,6 +48,7 @@ import { backupVerificationWorker } from "./workers/backupVerificationWorker";
 import { reconciliationWorker } from "./workers/reconciliationWorker";
 import { rateLimitStatusRouter } from "./routes/rate-limit/status";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
+import { quotaRequestsRouter } from "./routes/quota/requests";
 import { startSlowQueryAlerter, stopSlowQueryAlerter } from "./workers/slowQueryAlerter";
 import { scheduledReportsRouter } from "./routes/reports/scheduled";
 
@@ -132,6 +133,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/leaderboard", leaderboardRouter);
   app.use("/api/leaderboard/global", globalLeaderboardRouter);
   app.use("/api/rate-limit", rateLimitStatusRouter);
+  app.use("/api/quota/requests", quotaRequestsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/users/health", usersHealthRouter);

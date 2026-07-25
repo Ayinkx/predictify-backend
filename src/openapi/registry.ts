@@ -1916,12 +1916,116 @@ registry.registerPath({
       description: "All checks healthy",
       content: { "application/json": { schema: AdminHealthDetail } },
     },
-    207: {
-      description: "One or more checks degraded or errored",
-      content: { "application/json": { schema: AdminHealthDetail } },
+     207: {
+        description: "One or more checks degraded or errored",
+        content: { "application/json": { schema: AdminHealthDetail } },
+      },
+      403: {
+        description: "Forbidden — missing or non-admin JWT",
+        content: { "application/json": { schema: ErrorBody } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/json": { schema: ErrorBody } },
+      },
+    },
+  },
+});
+
+// ── /api/quota/requests ──────────────────────────────────────────────────
+
+const QuotaType = z.enum(["prediction_limit", "daily_prediction_limit", "claim_limit"]).openapi("QuotaType");
+
+const CreateQuotaRequestSchema = z
+  .object({
+    quotaType: QuotaType,
+    requestedValue: z.number().int().min(1),
+    reason: z.string().min(10).max(1000),
+  })
+  .openapi("CreateQuotaRequest");
+
+const QuotaRequestSchema = z
+  .object({
+    id: z.string().uuid(),
+    userId: z.string().uuid(),
+    quotaType: z.string(),
+    requestedValue: z.number().int(),
+    reason: z.string(),
+    status: z.string(),
+    reviewedBy: z.string().nullable(),
+    reviewNotes: z.string().nullable(),
+    reviewedAt: z.string().datetime().nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi("QuotaRequest");
+
+registry.registerPath({
+  method: "post",
+  path: "/api/quota/requests",
+  operationId: "createQuotaRequest",
+  tags: ["Quota"],
+  summary: "Submit a quota increase request",
+  description:
+    "Authenticated users can request an increase to their rate limits. " +
+    "Each user may have at most 5 pending requests at a time.",
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { "application/json": { schema: CreateQuotaRequestSchema } } },
+  },
+  responses: {
+    201: {
+      description: "Quota request created",
+      content: {
+        "application/json": { schema: z.object({ data: QuotaRequestSchema }) },
+      },
+    },
+    400: {
+      description: "Validation error or too many pending requests",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: ErrorBody } },
     },
     403: {
-      description: "Forbidden — missing or non-admin JWT",
+      description: "Forbidden",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    422: {
+      description: "Validation error",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/quota/requests",
+  operationId: "listQuotaRequests",
+  tags: ["Quota"],
+  summary: "List quota requests for the authenticated user",
+  description: "Returns all quota requests submitted by the authenticated user, newest first.",
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: "List of quota requests",
+      content: {
+        "application/json": {
+          schema: z.object({ data: z.array(QuotaRequestSchema) }),
+        },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    403: {
+      description: "Forbidden",
       content: { "application/json": { schema: ErrorBody } },
     },
     429: {
