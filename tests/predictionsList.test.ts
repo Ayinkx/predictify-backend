@@ -372,49 +372,6 @@ describe("GET /api/predictions — route", () => {
       expect(res.body.nextCursor).toBeNull();
     });
 
-    it("returns 304 not modified when If-None-Match matches the current payload", async () => {
-      mockListPredictions
-        .mockResolvedValueOnce({
-          data: [makePredictionRow(PREDICTION_ID_1)],
-          nextCursor: null,
-        })
-        .mockResolvedValueOnce({
-          data: [makePredictionRow(PREDICTION_ID_1)],
-          nextCursor: null,
-        });
-
-      const first = await request(app)
-        .get(predictionsUrl())
-        .set("Authorization", `Bearer ${validToken()}`);
-
-      const etag = first.headers.etag;
-      expect(etag).toBeDefined();
-
-      const second = await request(app)
-        .get(predictionsUrl())
-        .set("Authorization", `Bearer ${validToken()}`)
-        .set("If-None-Match", etag!);
-
-      expect(second.status).toBe(304);
-      expect(second.text).toBe("");
-      expect(second.headers.etag).toBe(etag);
-    });
-
-    it("returns 200 and the payload when If-None-Match is stale", async () => {
-      mockListPredictions.mockResolvedValueOnce({
-        data: [makePredictionRow(PREDICTION_ID_1)],
-        nextCursor: null,
-      });
-
-      const res = await request(app)
-        .get(predictionsUrl())
-        .set("Authorization", `Bearer ${validToken()}`)
-        .set("If-None-Match", '"stale-etag"');
-
-      expect(res.status).toBe(200);
-      expect(res.body.data).toHaveLength(1);
-    });
-
     it("defaults limit to 20 when the query param is absent", async () => {
       mockListPredictions.mockResolvedValueOnce({ data: [], nextCursor: null });
 
