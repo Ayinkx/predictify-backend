@@ -45,6 +45,7 @@ Once running:
 | `GET /health` | None | Liveness check — returns `{ "status": "ok" }` immediately. Use this to verify the process is up. |
 | `GET /healthz/dependencies` | None | Shallow dependency probe — Postgres, Soroban RPC, Horizon, webhook queue (Redis). Cached for 5 s. Returns 200/207/503. |
 | `GET /api/health/ready` | None | **Deep readiness check** — runs four parallel probes with 1-second timeouts each. Returns 200 when ready, 503 when unready. |
+| `GET /api/indexer/health` | None | Indexer liveness — compares the persisted cursor against the chain tip. Returns `"ok"` / `"degraded"` / `"down"` in `data.status`. Supports [ETag / conditional GET](#etag--conditional-get-caching). |
 
 ### `GET /api/health/ready` response
 
@@ -69,6 +70,29 @@ Once running:
 - Not cached — orchestrators (Kubernetes, ECS) get a fresh signal on every poll.
 
 See [docs/health-ready.md](docs/health-ready.md) for full runbook.
+
+## ETag / conditional GET caching
+
+Select read endpoints emit a strong `ETag` (SHA-256 of the response body) and honor
+`If-None-Match` with a `304 Not Modified` when the caller's cached copy is still
+current — this cuts bandwidth for clients that poll frequently. Implemented in
+[src/middleware/etag.ts](src/middleware/etag.ts) (`conditionalGet`).
+
+Currently applied to:
+
+- `GET /api/markets` / `GET /api/markets/:id`
+- `GET /api/auth/*` (session-derived responses)
+- `GET /api/indexer/health` — cursor/chain-tip lag rarely changes between polls, so
+  monitoring/orchestrator probes that hit this endpoint on a tight interval get a
+  bodyless `304` instead of re-downloading the same status on every tick.
+
+Behavior:
+
+- Every `200` response includes `ETag` and `Cache-Control: no-cache` (clients may
+  cache, but must revalidate before reuse).
+- Send the previously-received `ETag` value back as `If-None-Match` to revalidate;
+  a match returns `304` with no body, a mismatch returns a fresh `200`.
+- Error responses (e.g. `404`) never carry an `ETag`.
 
 ## Request body size limits
 

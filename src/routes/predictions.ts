@@ -1,5 +1,3 @@
-  
-  
 import { Router, Request, Response, NextFunction } from "express";
 import { requireAuth } from "../middleware/requireAuth";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
@@ -12,6 +10,7 @@ import { getRequestId } from "../lib/requestContext";
 import { clampLimit } from "../utils/cursor";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { listPredictionsQuerySchema } from "../validators/predictions";
+import { accessLog } from "../middleware/accessLog";
 
 export const predictionsRouter = Router();
 
