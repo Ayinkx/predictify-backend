@@ -338,6 +338,29 @@ describe("GET /api/predictions integration", () => {
       expect(res.body.error.requestId).toEqual(expect.any(String));
     });
 
+    it("returns 429 once the per-user limit is exceeded", async () => {
+      await seedUser("GRATELIMITUSER");
+      const token = tokenFor("GRATELIMITUSER");
+
+      for (let index = 0; index < 60; index += 1) {
+        const res = await request(createPredictionsApp())
+          .get("/api/predictions")
+          .set("Authorization", `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+      }
+
+      const blocked = await request(createPredictionsApp())
+        .get("/api/predictions")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.error).toMatchObject({
+        code: "rate_limit_exceeded",
+        retryAfter: expect.any(Number),
+      });
+    });
+
     it("returns 400 validation_error when limit exceeds the maximum", async () => {
       await seedUser("GLIMITUSER");
 

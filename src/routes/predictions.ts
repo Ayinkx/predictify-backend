@@ -3,6 +3,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
+import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { getPredictionExplanation } from "../services/predictionExplainService";
 import cancelRouter from "./predictions/cancel";
 import { createShareRouter } from "./predictions/share";
@@ -28,6 +29,20 @@ predictionsRouter.use("/", cancelRouter);
 
 // ── Authenticated routes ──────────────────────────────────────────────────
 predictionsRouter.use(requireAuth);
+predictionsRouter.use(
+  createPerUserRateLimiter({
+    windowMs: 60 * 1000,
+    limit: 60,
+    keyGenerator: (req) => {
+      const userId = (req as AuthenticatedRequest).user?.id;
+      if (typeof userId === "string" && userId.trim().length > 0) {
+        return `predictions:${userId}`;
+      }
+
+      return `predictions:unknown`;
+    },
+  }),
+);
 
 // Zod schema for GET /api/predictions query parameters.
 // Validated at the route boundary before any DB access.
