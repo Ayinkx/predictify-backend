@@ -3,14 +3,22 @@
 /**
  * @module rateLimit
  *
- * Provides a configurable Express rate-limit middleware built on
- * `express-rate-limit`. Every request — whether allowed or blocked —
- * has its rate-limit context attached to `req` for downstream use.
+ * Provides configurable Express rate-limit middleware built on
+ * `express-rate-limit`. Two variants are exposed:
+ *
+ *   - `createRateLimiter`        — generic, defaults to IP-keyed (global use)
+ *   - `createUserRateLimiter`    — per-user keyed, falls back to IP when anonymous
+ *
+ * Pre-configured instances (e.g. `webhooksRateLimiter`) are also exported
+ * for routes that consume the rate-limit env vars.
+ *
+ * Every request — whether allowed or blocked — has its rate-limit context
+ * attached to `req.rateLimitContext` for downstream use (audit, status pages).
  *
  * When a request is blocked (429), an audit log entry is created via
  * `auditService` before the error response is sent.
  *
- * Error responses follow the project envelope: `{ error: { code } }`
+ * Error responses follow the project envelope: `{ error: { code, ... } }`
  */
 
 import rateLimit, { type Options, type RateLimitRequestHandler } from "express-rate-limit";
@@ -18,6 +26,7 @@ import type { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { createAuditLog, type RateLimitContext } from "../services/auditService";
 import { logger } from "../config/logger";
+import { env } from "../config/env";
 
 // ---------------------------------------------------------------------------
 // Request augmentation
@@ -180,7 +189,63 @@ export function createRateLimiter(options: Partial<Options> = {}): RateLimitRequ
 }
 
 /**
- * Default rate limiter instance — 100 req / 15 min.
+ * Default rate limiter instance — 100 req / 15 min, keyed by IP.
  * Import this for general application-wide use.
  */
 export const defaultRateLimiter = createRateLimiter();
+
+// ---------------------------------------------------------------------------
+// Per-user rate limiting (for authenticated routes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a stable identifier for rate-limit keying that prefers
+ * authenticated user identity over network identity.
+ *
+ * Priority:
+ *   1. `req.user.stellarAddress` — the primary user key on this service
+ *   2. `req.user.id`              — DB UUID fallback
+ *   3. Client IP (via XFF / socket) — anonymous fallback
+ */
+export function getUserRateKey(req: Request): string {
+  if (req.user?.stellarAddress) return `user:${req.user.stellarAddress}`;
+  if (req.user?.id) return `user:${req.user.id}`;
+  return `ip:${getClientIp(req)}`;
+}
+
+/**
+ * Creates a rate-limit middleware keyed by authenticated user identity.
+ *
+ * Use this for user-owned routes (e.g. `/api/webhooks`, `/api/me/*`) so
+ * that quota is tracked per Stellar address rather than per IP — shared
+ * NAT / VPN egress won't penalise multiple users coming from the same IP.
+ *
+ * Anonymous callers (no `req.user`) fall back to IP keying so the limiter
+ * is always enforceable regardless of authentication state.
+ *
+ * @param options - Partial express-rate-limit options; `keyGenerator` is
+ *   overridden internally to use {@link getUserRateKey}.
+ * @returns Configured rate-limit middleware
+ *
+ * @example
+ *   router.use(createUserRateLimiter({ limit: 50, windowMs: 60_000 }));
+ */
+export function createUserRateLimiter(
+  options: Partial<Options> = {},
+): RateLimitRequestHandler {
+  return createRateLimiter({
+    ...options,
+    keyGenerator: (req: Request) => getUserRateKey(req as Request),
+  });
+}
+
+/**
+ * Pre-configured per-user rate limiter for `/api/webhooks` routes.
+ *
+ * Reads `WEBHOOKS_RATE_LIMIT_WINDOW_MS` and `WEBHOOKS_RATE_LIMIT_MAX` from
+ * the environment; defaults to 100 requests per 15 minutes per user.
+ */
+export const webhooksRateLimiter = createUserRateLimiter({
+  windowMs: env.WEBHOOKS_RATE_LIMIT_WINDOW_MS,
+  limit: env.WEBHOOKS_RATE_LIMIT_MAX,
+});
