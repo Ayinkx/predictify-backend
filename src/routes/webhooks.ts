@@ -3,6 +3,7 @@ import { z } from "zod";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { webhookRequestDuration } from "../metrics/registry";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
 
 export interface WebhooksRouterDeps {
@@ -45,6 +46,14 @@ export function createWebhooksRouter(deps: WebhooksRouterDeps): Router {
   router.use(requireAdmin);
 
   router.get("/", async (req, res, next) => {
+    const endTimer = webhookRequestDuration.startTimer({
+      route: "/api/webhooks",
+    });
+
+    res.on("finish", () => {
+      endTimer();
+    });
+
     const requestId = getRequestId();
 
     try {
