@@ -148,6 +148,16 @@ export function createRateLimiter(options: Partial<Options> = {}): RateLimitRequ
   }) as RateLimitRequestHandler;
 }
 
+/**
+ * Fixed-window per-identity limiter (default 60 requests / 60 seconds).
+ *
+ * Prefer an explicit `keyGenerator` when mounting on a route family so buckets
+ * stay isolated (e.g. `users:{id}` on `/api/users`, `predictions:{id}` on
+ * `/api/predictions`). Falls back to `user:{address|sub|id}` then `ip:{ip}`.
+ *
+ * Emits IETF draft-7 `RateLimit-*` headers and the standard
+ * `{ error: { code: "rate_limit_exceeded", ... } }` envelope on 429.
+ */
 export function createPerUserRateLimiter(options: Partial<Options> = {}): RateLimitRequestHandler {
   return createRateLimiter({
     windowMs: 60 * 1000,

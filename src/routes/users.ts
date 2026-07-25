@@ -21,6 +21,12 @@
  *     → req.id → new UUID) and stamps it on `res.locals.correlationId`.
  *   - Echoes the correlation ID back via the X-Correlation-Id response header.
  *   - Emits a structured `users_access_log` entry on every response finish.
+ *
+ * Rate limiting (issue #411 / users-rl-v7):
+ *   - `createPerUserRateLimiter` (60 req/min, IETF draft-7 headers) on each route.
+ *   - `GET /me` authenticates first, then keys by `users:{user.id}`.
+ *   - Public GETs fall back to `users:ip:{ip}` (no soft auth — preserves 403/401 contracts).
+ *   - `/api/users/health` is mounted separately and is not throttled here.
  */
 
 import { Router, Request, Response, NextFunction } from "express";
@@ -34,6 +40,7 @@ import {
 import { requireAuthForbidden } from "../middleware/requireAuth";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { accessLog } from "../middleware/accessLog";
+import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
@@ -47,6 +54,22 @@ export const usersRouter = Router();
 const stellarAddressSchema = z
   .string()
   .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar address");
+
+/**
+ * Shared /api/users limiter. Authenticated requests (req.user set) use
+ * `users:{id}`; anonymous traffic uses `users:ip:{ip}`.
+ */
+const usersRateLimit = createPerUserRateLimiter({
+  windowMs: 60 * 1000,
+  limit: 60,
+  keyGenerator: (req) => {
+    const userId = (req as AuthenticatedRequest).user?.id;
+    if (typeof userId === "string" && userId.trim().length > 0) {
+      return `users:${userId}`;
+    }
+    return `users:ip:${req.socket?.remoteAddress ?? "unknown"}`;
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Access log — must be the first middleware so every handler inherits the
@@ -67,7 +90,11 @@ usersRouter.use(usersMetricsMiddleware);
 // ---------------------------------------------------------------------------
 // GET /api/users/me
 // ---------------------------------------------------------------------------
-usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, res, next) => {
+usersRouter.get(
+  "/me",
+  requireAuthForbidden,
+  usersRateLimit,
+  async (req: AuthenticatedRequest, res, next) => {
   const correlationId = res.locals.correlationId as string;
 
   try {
@@ -121,6 +148,7 @@ usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, r
  */
 usersRouter.get(
   "/:address/predictions",
+  usersRateLimit,
   async (req: Request, res: Response, next: NextFunction) => {
     // Prefer the access-log correlation ID; fall back to ALS for non-route callers.
     const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
@@ -201,6 +229,7 @@ usersRouter.get(
 // ---------------------------------------------------------------------------
 usersRouter.get(
   "/:stellarAddress/profile",
+  usersRateLimit,
   async (req, res, next) => {
     const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
     const reqId = correlationId;
