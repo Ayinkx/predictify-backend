@@ -1338,7 +1338,21 @@ registry.registerPath({
     },
     401: {
       description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            unauthorized: {
+              value: {
+                error: {
+                  code: "UNAUTHORIZED",
+                  requestId: "req_xyz789",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -1386,11 +1400,39 @@ registry.registerPath({
     },
     400: {
       description: "Invalid address",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            invalidAddress: {
+              value: {
+                error: {
+                  code: "invalid_address",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     404: {
       description: "User not found",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            notFound: {
+              value: {
+                error: {
+                  code: "not_found",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -1436,11 +1478,39 @@ registry.registerPath({
     },
     400: {
       description: "Invalid Stellar address",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            invalidAddress: {
+              value: {
+                error: {
+                  code: "validation_error",
+                  requestId: "req_xyz789",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     404: {
       description: "User not found",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            notFound: {
+              value: {
+                error: {
+                  code: "not_found",
+                  requestId: "req_xyz789",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -1611,11 +1681,39 @@ registry.registerPath({
     },
     400: {
       description: "Validation error",
-      content: { "application/json": { schema: ValidationErrorBody } },
+      content: {
+        "application/json": {
+          schema: ValidationErrorBody,
+          examples: {
+            validationError: {
+              value: {
+                error: {
+                  code: "VALIDATION_ERROR",
+                  details: "Invalid stellar address",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     401: {
       description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            unauthorized: {
+              value: {
+                error: {
+                  code: "UNAUTHORIZED",
+                  requestId: "req_xyz789",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -1650,11 +1748,39 @@ registry.registerPath({
     },
     400: {
       description: "Validation error",
-      content: { "application/json": { schema: ValidationErrorBody } },
+      content: {
+        "application/json": {
+          schema: ValidationErrorBody,
+          examples: {
+            validationError: {
+              value: {
+                error: {
+                  code: "VALIDATION_ERROR",
+                  details: "Invalid stellar address",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     401: {
       description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            unauthorized: {
+              value: {
+                error: {
+                  code: "UNAUTHORIZED",
+                  requestId: "req_xyz789",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
