@@ -1,4 +1,4 @@
-import { requestTimeout } from "../../src/middleware/timeout";
+import { abortableRace, RequestAbortedError, requestTimeout } from "../../src/middleware/timeout";
 import { Request, Response, NextFunction } from "express";
 
 describe("requestTimeout Middleware", () => {
@@ -57,5 +57,55 @@ describe("requestTimeout Middleware", () => {
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it("honors a custom statusCode/code/message, e.g. 504 for gateway timeouts", () => {
+    const middleware = requestTimeout(1000, {
+      statusCode: 504,
+      code: "gateway_timeout",
+      message: "Leaderboard request timed out",
+    });
+    middleware(req as Request, res as Response, next);
+
+    jest.advanceTimersByTime(1000);
+
+    expect(res.status).toHaveBeenCalledWith(504);
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: "gateway_timeout",
+        message: "Leaderboard request timed out",
+        requestId: "test-req-id",
+      },
+    });
+  });
+});
+
+describe("abortableRace", () => {
+  it("resolves with the promise's value when it settles before the signal aborts", async () => {
+    const controller = new AbortController();
+    await expect(abortableRace(Promise.resolve("ok"), controller.signal)).resolves.toBe("ok");
+  });
+
+  it("passes through the original promise when no signal is given", async () => {
+    await expect(abortableRace(Promise.resolve("ok"))).resolves.toBe("ok");
+  });
+
+  it("rejects with RequestAbortedError once the signal aborts, ignoring the original promise", async () => {
+    const controller = new AbortController();
+    const neverResolves = new Promise(() => {});
+
+    const race = abortableRace(neverResolves, controller.signal);
+    controller.abort();
+
+    await expect(race).rejects.toBeInstanceOf(RequestAbortedError);
+  });
+
+  it("rejects immediately if the signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(abortableRace(Promise.resolve("ok"), controller.signal)).rejects.toBeInstanceOf(
+      RequestAbortedError,
+    );
   });
 });

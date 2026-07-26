@@ -1,13 +1,34 @@
 import { Request, Response, NextFunction } from "express";
 
+export interface RequestTimeoutOptions {
+  /** HTTP status code to send when the timeout is exceeded. Defaults to 408. */
+  statusCode?: number;
+  /** Machine-readable error code included in the response envelope. Defaults to "timeout". */
+  code?: string;
+  /** Human-readable message included in the response envelope. */
+  message?: string;
+}
+
 /**
  * Creates an Express middleware that enforces a maximum request duration.
  * If the route handler does not finish before `timeoutMs`, the request is
- * aborted gracefully with a 408 Request Timeout error envelope.
+ * aborted gracefully with an error envelope (408 Request Timeout by default).
+ *
+ * The AbortSignal exposed on `res.locals.abortSignal` lets downstream route
+ * handlers cooperatively stop waiting on in-flight work (e.g. via
+ * `abortableRace`) once the deadline is reached or the client disconnects,
+ * instead of forcibly killing the underlying operation.
  *
  * @param timeoutMs - Time in milliseconds before the request times out
+ * @param options - Overrides for the status code / error code / message sent on timeout
  */
-export function requestTimeout(timeoutMs: number) {
+export function requestTimeout(timeoutMs: number, options: RequestTimeoutOptions = {}) {
+  const {
+    statusCode = 408,
+    code = "timeout",
+    message = "Request timeout exceeded",
+  } = options;
+
   return (req: Request, res: Response, next: NextFunction) => {
     let settled = false;
     const controller = new AbortController();
@@ -31,10 +52,10 @@ export function requestTimeout(timeoutMs: number) {
       abort();
       if (!res.headersSent) {
         const correlationId = (res.locals.correlationId as string) || "unknown";
-        res.status(408).json({
+        res.status(statusCode).json({
           error: {
-            code: "timeout",
-            message: "Request timeout exceeded",
+            code,
+            message,
             requestId: correlationId,
           },
         });
@@ -50,4 +71,40 @@ export function requestTimeout(timeoutMs: number) {
 
     next();
   };
+}
+
+/** Thrown by `abortableRace` when the given signal fires before the promise settles. */
+export class RequestAbortedError extends Error {
+  constructor(message = "Request aborted before completion") {
+    super(message);
+    this.name = "RequestAbortedError";
+  }
+}
+
+/**
+ * Races `promise` against `signal`. If `signal` aborts first, the returned
+ * promise rejects with `RequestAbortedError` so the caller can stop waiting
+ * on (and acting on the result of) work that the timeout middleware has
+ * already given up on — cooperative cancellation rather than a hard kill of
+ * the underlying operation.
+ */
+export function abortableRace<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new RequestAbortedError());
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new RequestAbortedError());
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
 }
