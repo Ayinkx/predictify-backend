@@ -21,7 +21,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "../../db";
 import { scheduledReports } from "../../db/schema";
 import { requireAuth } from "../../middleware/requireAuth";
