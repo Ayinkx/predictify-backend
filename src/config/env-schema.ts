@@ -64,6 +64,10 @@ const baseSchema = z.object({
   /** Sliding window length for captcha threshold tracking (ms) */
   CAPTCHA_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
 
+  // ── Webhooks rate limiting (per user) ─────────────────────
+  WEBHOOKS_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  WEBHOOKS_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+
   // ── Settle confirmer ──────────────────────────────────────
   SETTLE_CONFIRMER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
   SETTLE_CONFIRMER_CONFIRMATION_LEDGERS: z.coerce.number().int().positive().default(2),
