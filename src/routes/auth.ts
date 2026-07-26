@@ -35,7 +35,7 @@ authRouter.use(createPerUserRateLimiter({
 }));
 
 const refreshTokenBodySchema = z.object({
-  refreshToken: z.string().min(1),
+  refreshToken: z.string().refine((addr) => StrKey.isValidEd25519PublicKey(addr), { message: "Invalid Stellar ed25519 public key" }),
 });
 
 function parseRefreshToken(body: unknown): string | null {
@@ -95,14 +95,14 @@ authRouter.post("/wallet/logout", async (req, res, next) => {
 });
 
 const challengeBodySchema = z.object({
-  stellarAddress: z.string().min(1),
+  stellarAddress: z.string().refine((addr) => StrKey.isValidEd25519PublicKey(addr), { message: "Invalid Stellar ed25519 public key" }),
 });
 
 authRouter.post("/challenge", async (req, res, next) => {
   try {
     const parsed = challengeBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      throw RouteErrorFactory.badRequest("stellarAddress is required");
+      throw RouteErrorFactory.validation("Invalid request body", parsed.error.flatten().fieldErrors as Record<string, string[]>);
     }
 
     const result = await createChallenge(parsed.data.stellarAddress);
@@ -124,8 +124,8 @@ const verifyBodySchema = z.object({
     (addr) => StrKey.isValidEd25519PublicKey(addr),
     { message: "Invalid Stellar ed25519 public key" },
   ),
-  nonce: z.string().min(1),
-  signature: z.string().min(1),
+  nonce: z.string().refine((addr) => StrKey.isValidEd25519PublicKey(addr), { message: "Invalid Stellar ed25519 public key" }),
+  signature: z.string().refine((addr) => StrKey.isValidEd25519PublicKey(addr), { message: "Invalid Stellar ed25519 public key" }),
 });
 
 authRouter.post("/verify", async (req, res, next) => {
