@@ -9,7 +9,7 @@ import { metricsHistogramMiddleware } from "./middleware/metricsHistogram";
 import { idempotency } from "./middleware/idempotency";
 import { defaultBodySizeLimitMiddleware, webhookBodySizeLimitMiddleware } from "./middleware/bodySize";
 import { healthRouter } from "./routes/health";
-import dependenciesRouter from "./routes/healthz/dependencies";
+import healthzDependenciesRouter from "./routes/healthz/dependencies";
 import { createReadyRouter } from "./routes/health/ready";
 import { dependenciesRouter } from "./routes/health/dependencies";
 import { redisConnection } from "./queue";
@@ -25,24 +25,23 @@ import { adminUsersRouter } from "./routes/adminUsers";
 import { adminNotesRouter } from "./routes/admin/users/notes";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { globalLeaderboardRouter } from "./routes/leaderboard/global";
-import { devicesRouter } from "./routes/devices";
 import { createDocsRouter } from "./routes/docs";
 import { sessionsRouter } from "./routes/me/sessions";
 import { notificationsRouter } from "./routes/notifications";
 import { socialRouter } from "./routes/social";
-import { webhooksRouter } from "./routes/webhooks";
+import { createWebhooksRouter } from "./routes/webhooks";
 import { adminAuditRouter } from "./routes/admin/audit";
 import { adminAuditExportRouter } from "./routes/admin/audit/export";
 import { adminMarketsRouter } from "./routes/admin/markets";
 import { adminSchemaVersionsRouter } from "./routes/admin/schema-versions";
 import { errorHandler } from "./middleware/errorHandler";
-import { stopIndexerHealthProbe } from "./jobs/indexerHealthProbe";
 import { requestContextStorage } from "./lib/requestContext";
 import { REQUEST_ID_HEADER } from "./lib/http";
 import { register } from "./metrics/registry";
 import { connectWithRetry, closeDb, db } from "./db/client";
 import { stopScheduler } from "./services/scheduler";
 import { startIndexerHealthProbe, stopIndexerHealthProbe } from "./jobs/indexerHealthProbe";
+import { indexerHealthRouter } from "./routes/indexer/health";
 import { WebhookWorker } from "./workers/webhookWorker";
 import { marketResolverWorker } from "./workers/marketResolver";
 import { backupVerificationWorker } from "./workers/backupVerificationWorker";
@@ -52,6 +51,9 @@ import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
 import { quotaRequestsRouter } from "./routes/quota/requests";
 import { adminCircuitBreakerRouter } from "./routes/admin/circuit-breaker";
 import { scheduledReportsRouter } from "./routes/reports/scheduled";
+import { DrizzleWebhookStore } from "./services/drizzleWebhookStore";
+import type { WebhookStore } from "./services/webhookStore";
+import type { IWebhookDispatcher } from "./services/webhookDispatcher";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
 
@@ -71,8 +73,11 @@ function sanitizeRequestId(raw: string): string | undefined {
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
-export function createApp(_options: CreateAppOptions = {}): express.Express {
+export function createApp(options: CreateAppOptions = {}): express.Express {
   const app = express();
+
+  const webhookStore: WebhookStore = options.webhooks?.store ?? new DrizzleWebhookStore(db);
+  const webhooksRouter = createWebhooksRouter({ store: webhookStore });
 
   app.set("etag", false);
 
@@ -118,9 +123,10 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use(metricsMiddleware);
   app.use(metricsHistogramMiddleware);
   app.use("/health", healthRouter);
-  app.use("/healthz/dependencies", dependenciesRouter);
+  app.use("/healthz/dependencies", healthzDependenciesRouter);
   app.use("/api/health/ready", createReadyRouter({ db, redis: redisConnection }));
   app.use("/api/health/dependencies", dependenciesRouter);
+  app.use("/api/indexer", indexerHealthRouter);
 
   const mutationMethods = ["POST", "PATCH"] as const;
   app.use("/api", (req, res, next) =>

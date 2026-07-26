@@ -14,12 +14,19 @@
  *   The endpoint always returns HTTP 200 with a status field so that uptime
  *   probes can scrape it without tripping on non-2xx responses; orchestrators
  *   should alert on the `status` field instead.
+ *
+ *   Emits a strong `ETag` (see `../../middleware/etag`) derived from the
+ *   response body and honors `If-None-Match` with a `304 Not Modified` when
+ *   the caller already has the current state. This is a meaningful bandwidth
+ *   saver here because monitoring/orchestrator probes poll this endpoint far
+ *   more often than the underlying cursor/chain-tip actually change.
  */
 
 import { Router } from "express";
 import { indexerService } from "../../services/indexerService";
 import { logger } from "../../config/logger";
 import { getRequestId } from "../../lib/requestContext";
+import { conditionalGet } from "../../middleware/etag";
 
 /** Maximum acceptable cursor lag (in ledgers) before the indexer is "degraded". */
 const DEFAULT_MAX_LAG = 50;
@@ -33,7 +40,7 @@ function resolveMaxLag(): number {
 export function createIndexerHealthRouter(): Router {
   const router = Router();
 
-  router.get("/health", async (_req, res, next) => {
+  router.get("/health", async (req, res, next) => {
     const reqId = getRequestId();
     const maxLag = resolveMaxLag();
 
@@ -50,7 +57,7 @@ export function createIndexerHealthRouter(): Router {
       }
 
       if (chainTip === null) {
-        return res.status(200).json({
+        const payload = {
           data: {
             status: "down",
             cursor,
@@ -58,7 +65,9 @@ export function createIndexerHealthRouter(): Router {
             lag: null,
             maxLag,
           },
-        });
+        };
+        if (conditionalGet(payload, req, res)) return;
+        return res.status(200).json(payload);
       }
 
       const lag = Math.max(0, chainTip - cursor);
@@ -66,9 +75,9 @@ export function createIndexerHealthRouter(): Router {
 
       logger.info({ reqId, cursor, chainTip, lag, status }, "indexer_health_checked");
 
-      return res.status(200).json({
-        data: { status, cursor, chainTip, lag, maxLag },
-      });
+      const payload = { data: { status, cursor, chainTip, lag, maxLag } };
+      if (conditionalGet(payload, req, res)) return;
+      return res.status(200).json(payload);
     } catch (err) {
       logger.error({ reqId, err }, "indexer_health_failed");
       return next(err);
