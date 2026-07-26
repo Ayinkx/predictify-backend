@@ -9,6 +9,11 @@ window (default 5 requests per minute) to reduce abuse from repeated challenge o
 verification attempts. The limiter uses the submitted Stellar address when present
 and falls back to the client IP otherwise.
 
+User-facing routes under `/api/users` (excluding `/api/users/health`) use a
+per-user fixed-window limiter (default **60 requests per minute**). Authenticated
+callers are keyed by database user id (`users:{id}`); anonymous callers fall back
+to IP. See [`docs/users-rate-limiting.md`](./users-rate-limiting.md).
+
 ## Configuration
 
 | Variable | Default | Description |
