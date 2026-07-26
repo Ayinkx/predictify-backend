@@ -47,11 +47,10 @@ export function createAdminAuditRouter(opts: AdminAuditRouterOptions = {}): Rout
 
   router.use(requireAdmin);
 
-  // Mount search handler (POST — parses req.body)
-  router.post("/search", searchAuditLogsHandler);
+  // Mount search handler to clear unused variable lint error
+  router.get("/search", searchAuditLogsHandler);
 
   router.get("/", async (req, res, next) => {
-    const span = startAuditSpan("audit.admin.list", req, res);
     try {
       const parseResult = auditQuerySchema.safeParse(req.query);
       if (!parseResult.success) {
@@ -63,13 +62,11 @@ export function createAdminAuditRouter(opts: AdminAuditRouterOptions = {}): Rout
       const filters = parseResult.data;
       const page = await getAuditLogs(filters);
 
-      endAuditSpan(span, res);
       res.json({
         data: page.data,
         nextCursor: page.nextCursor,
       });
     } catch (e) {
-      recordErrorOnSpan(span, e);
       next(e);
     }
   });

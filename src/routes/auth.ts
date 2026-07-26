@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { and, eq, isNull, gt, desc, or, lt } from "drizzle-orm";
 import { StrKey } from "@stellar/stellar-sdk";
+import { conditionalGet } from "../middleware/etag";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import {
   rotateRefreshToken,
