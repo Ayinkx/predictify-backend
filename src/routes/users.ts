@@ -34,6 +34,7 @@ import {
 import { requireAuthForbidden } from "../middleware/requireAuth";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { accessLog } from "../middleware/accessLog";
+import { conditionalGet } from "../middleware/etag";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
@@ -88,7 +89,11 @@ usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, r
       },
       "user_me_profile_loaded",
     );
-    return res.json({ data: profile });
+
+    // Strong ETag on the profile payload; 304 if client already has it.
+    const responsePayload = { data: profile };
+    if (conditionalGet(responsePayload, req, res)) return;
+    return res.json(responsePayload);
   } catch (e) {
     return next(e);
   }
@@ -189,7 +194,10 @@ usersRouter.get(
         "predictions_page_served",
       );
 
-      return res.json({ data: page.data, nextCursor: page.nextCursor });
+      // Strong ETag on the page payload; 304 if client already has it.
+      const responsePayload = { data: page.data, nextCursor: page.nextCursor };
+      if (conditionalGet(responsePayload, req, res)) return;
+      return res.json(responsePayload);
     } catch (e) {
       return next(e);
     }
@@ -246,7 +254,10 @@ usersRouter.get(
         "user_profile_found",
       );
 
-      return res.json({ data: profile });
+      // Strong ETag on the profile payload; 304 if client already has it.
+      const responsePayload = { data: profile };
+      if (conditionalGet(responsePayload, req, res)) return;
+      return res.json(responsePayload);
     } catch (err) {
       return next(err);
     }
