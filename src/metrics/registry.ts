@@ -83,3 +83,18 @@ export const usersEndpointDuration = new Histogram({
   buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
   registers: [register],
 });
+
+export const webhooksEndpointRequestsTotal = new Counter({
+  name: "webhooks_endpoint_requests_total",
+  help: "Total number of requests to /api/webhooks endpoints, segmented by method, route, and status",
+  labelNames: ["method", "route", "status"] as const,
+  registers: [register],
+});
+
+export const webhooksEndpointDuration = new Histogram({
+  name: "webhooks_endpoint_duration_seconds",
+  help: "Request duration in seconds for /api/webhooks endpoints, segmented by method, route, and status",
+  labelNames: ["method", "route", "status"] as const,
+  buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
+  registers: [register],
+});

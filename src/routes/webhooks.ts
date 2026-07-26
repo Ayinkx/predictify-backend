@@ -3,6 +3,7 @@ import { z } from "zod";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { webhooksMetricsMiddleware } from "../metrics/webhooksMetrics";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
 
 export interface WebhooksRouterDeps {
@@ -42,6 +43,7 @@ function serializeDelivery(row: WebhookDelivery) {
 export function createWebhooksRouter(deps: WebhooksRouterDeps): Router {
   const router = Router();
 
+  router.use(webhooksMetricsMiddleware);
   router.use(requireAdmin);
 
   router.get("/", async (req, res, next) => {

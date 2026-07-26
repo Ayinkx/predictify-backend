@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from "express";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { webhooksMetricsMiddleware } from "../metrics/webhooksMetrics";
 import type { IWebhookDispatcher } from "../services/webhookDispatcher";
 import type { DlqRow, WebhookStore } from "../services/webhookStore";
 import { RouteErrorFactory } from "../errors";
@@ -34,6 +35,7 @@ const UUID_RE =
 
 export function createAdminWebhooksRouter(deps: AdminWebhookDeps): Router {
   const router = Router();
+  router.use(webhooksMetricsMiddleware);
   router.use(requireAdmin);
 
   router.get("/dlq", async (req, res, next) => {
