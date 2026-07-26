@@ -25,15 +25,62 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "../../db";
 import { scheduledReports } from "../../db/schema";
 import { requireAuth } from "../../middleware/requireAuth";
+import { createPerUserTokenBucketLimiter } from "../../middleware/rateLimit";
 import { RouteErrorFactory } from "../../errors";
 import { logger } from "../../config/logger";
 import { getRequestId } from "../../lib/requestContext";
 import type { Request } from "express";
 
-export const scheduledReportsRouter = Router();
+export interface ScheduledReportsRouterOptions {
+  rateLimit?: {
+    capacity?: number;
+    refillWindowMs?: number;
+  };
+}
 
-// Apply authentication to all routes
-scheduledReportsRouter.use(requireAuth);
+function getScheduledReportsRateLimitKey(req: Request): string {
+  const requestWithUser = req as Request & {
+    user?: { id?: string; address?: string; sub?: string };
+  };
+  const identity =
+    requestWithUser.user?.id ??
+    requestWithUser.user?.address ??
+    requestWithUser.user?.sub;
+
+  if (typeof identity === "string" && identity.trim().length > 0) {
+    return `reports:${identity.trim()}`;
+  }
+
+  return `ip:${req.socket?.remoteAddress ?? "unknown"}`;
+}
+
+function getScheduledReportsUserId(req: Request): string {
+  const requestWithUser = req as Request & {
+    user?: { id?: string };
+  };
+
+  const userId = requestWithUser.user?.id;
+  if (typeof userId === "string" && userId.trim().length > 0) {
+    return userId.trim();
+  }
+
+  throw RouteErrorFactory.unauthorized("Authentication required");
+}
+
+export function createScheduledReportsRouter(
+  options: ScheduledReportsRouterOptions = {},
+): Router {
+  const router = Router();
+
+  // Apply authentication and per-user throttling to all routes.
+  router.use(requireAuth);
+  router.use(
+    createPerUserTokenBucketLimiter({
+      capacity: options.rateLimit?.capacity ?? 60,
+      refillWindowMs: options.rateLimit?.refillWindowMs ?? 60 * 1000,
+      keyGenerator: getScheduledReportsRateLimitKey,
+    }),
+  );
 
 // ---------------------------------------------------------------------------
 // Validation Schemas
@@ -195,9 +242,9 @@ const listQuerySchema = z.object({
  *   - 422: Validation error with field details
  *   - 500: Internal server error
  */
-scheduledReportsRouter.post("/", async (req, res, next) => {
+  router.post("/", async (req, res, next) => {
   const reqId = getRequestId();
-  const userId = (req as Request & { user: { id: string } }).user.id;
+  const userId = getScheduledReportsUserId(req);
 
   try {
     const parsed = createScheduledReportSchema.safeParse(req.body);
@@ -266,7 +313,7 @@ scheduledReportsRouter.post("/", async (req, res, next) => {
  *   - 401: Unauthenticated
  *   - 500: Internal server error
  */
-scheduledReportsRouter.get("/", async (req, res, next) => {
+  router.get("/", async (req, res, next) => {
   const reqId = getRequestId();
   const userId = (req as Request & { user: { id: string } }).user.id;
 
@@ -285,7 +332,7 @@ scheduledReportsRouter.get("/", async (req, res, next) => {
 
     // Fetch total count for pagination metadata
     const [countResult] = await db
-      .select({ count: db.$count() })
+      .select({ count: db.$count(scheduledReports) })
       .from(scheduledReports)
       .where(eq(scheduledReports.userId, userId));
 
@@ -346,9 +393,9 @@ scheduledReportsRouter.get("/", async (req, res, next) => {
  *   - 404: Scheduled report not found
  *   - 500: Internal server error
  */
-scheduledReportsRouter.get("/:id", async (req, res, next) => {
+  router.get("/:id", async (req, res, next) => {
   const reqId = getRequestId();
-  const userId = (req as Request & { user: { id: string } }).user.id;
+  const userId = getScheduledReportsUserId(req);
   const { id } = req.params;
 
   try {
@@ -426,9 +473,9 @@ scheduledReportsRouter.get("/:id", async (req, res, next) => {
  *   - 422: Validation error with field details
  *   - 500: Internal server error
  */
-scheduledReportsRouter.patch("/:id", async (req, res, next) => {
+  router.patch("/:id", async (req, res, next) => {
   const reqId = getRequestId();
-  const userId = (req as Request & { user: { id: string } }).user.id;
+  const userId = getScheduledReportsUserId(req);
   const { id } = req.params;
 
   try {
@@ -529,9 +576,9 @@ scheduledReportsRouter.patch("/:id", async (req, res, next) => {
  *   - 404: Scheduled report not found
  *   - 500: Internal server error
  */
-scheduledReportsRouter.delete("/:id", async (req, res, next) => {
+  router.delete("/:id", async (req, res, next) => {
   const reqId = getRequestId();
-  const userId = (req as Request & { user: { id: string } }).user.id;
+  const userId = getScheduledReportsUserId(req);
   const { id } = req.params;
 
   try {
@@ -569,4 +616,9 @@ scheduledReportsRouter.delete("/:id", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
+  });
+
+  return router;
+}
+
+export const scheduledReportsRouter = createScheduledReportsRouter();

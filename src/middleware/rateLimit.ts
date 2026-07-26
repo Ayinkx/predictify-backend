@@ -28,6 +28,17 @@ type AuthenticatedRequest = Request & {
   };
 };
 
+type TokenBucketState = {
+  tokens: number;
+  lastRefillAt: number;
+};
+
+export interface TokenBucketRateLimitOptions {
+  capacity?: number;
+  refillWindowMs?: number;
+  keyGenerator?: (req: Request) => string;
+}
+
 function getClientIp(req: Request): string {
   return req.socket?.remoteAddress ?? "unknown";
 }
@@ -76,6 +87,24 @@ function attachContext(
     limit,
     remaining,
     resetAt: getResetAt(res, windowMs),
+    blocked,
+  };
+
+  req.rateLimitContext = context;
+  return context;
+}
+
+function attachTokenBucketContext(
+  req: Request,
+  remaining: number,
+  capacity: number,
+  resetAt: string,
+  blocked: boolean,
+): RateLimitContext {
+  const context: RateLimitContext = {
+    limit: capacity,
+    remaining: Math.max(0, remaining),
+    resetAt,
     blocked,
   };
 
@@ -148,18 +177,90 @@ export function createRateLimiter(options: Partial<Options> = {}): RateLimitRequ
   }) as RateLimitRequestHandler;
 }
 
+export function createPerUserTokenBucketLimiter(
+  options: TokenBucketRateLimitOptions = {},
+): RateLimitRequestHandler {
+  const capacity = Math.max(1, Math.floor(options.capacity ?? 60));
+  const refillWindowMs = Math.max(1, Math.floor(options.refillWindowMs ?? 60 * 1000));
+  const refillRatePerMs = capacity / refillWindowMs;
+  const buckets = new Map<string, TokenBucketState>();
+
+  return ((req: Request, res: Response, next: NextFunction) => {
+    req.correlationId ??= uuidv4();
+
+    const overrideKey = options.keyGenerator?.(req);
+    const key =
+      typeof overrideKey === "string" && overrideKey.trim().length > 0
+        ? overrideKey
+        : getAuthenticatedUserKey(req) ?? `ip:${getClientIp(req)}`;
+
+    const now = Date.now();
+    const bucket = buckets.get(key) ?? {
+      tokens: capacity,
+      lastRefillAt: now,
+    };
+
+    if (bucket.lastRefillAt < now) {
+      const elapsedMs = now - bucket.lastRefillAt;
+      bucket.tokens = Math.min(capacity, bucket.tokens + elapsedMs * refillRatePerMs);
+      bucket.lastRefillAt = now;
+    }
+
+    if (bucket.tokens < 1) {
+      const msUntilNextToken = Math.max(
+        1,
+        Math.ceil((1 - bucket.tokens) / refillRatePerMs),
+      );
+      const retryAfter = Math.max(1, Math.ceil(msUntilNextToken / 1000));
+      const resetAt = new Date(now + msUntilNextToken).toISOString();
+
+      res.setHeader("Retry-After", String(retryAfter));
+      res.setHeader("RateLimit-Limit", String(capacity));
+      res.setHeader("RateLimit-Remaining", "0");
+      res.setHeader("RateLimit-Reset", String(Math.ceil((now + msUntilNextToken) / 1000)));
+
+      const context = attachTokenBucketContext(req, 0, capacity, resetAt, true);
+      void createAuditLog({
+        action: "rate_limit.blocked",
+        ip: getClientIp(req),
+        correlationId: req.correlationId,
+        rateLimitContext: context,
+      }).catch(() => undefined);
+
+      res.status(429).json({
+        error: {
+          code: "rate_limit_exceeded",
+          message: "Too many requests",
+          retryAfter,
+          resetAt: context.resetAt,
+        },
+      });
+      return;
+    }
+
+    bucket.tokens = Math.max(0, bucket.tokens - 1);
+    buckets.set(key, bucket);
+
+    const remaining = Math.floor(bucket.tokens);
+    const msUntilNextToken = Math.max(
+      1,
+      Math.ceil((1 - bucket.tokens) / refillRatePerMs),
+    );
+    const resetAt = new Date(now + msUntilNextToken).toISOString();
+
+    res.setHeader("RateLimit-Limit", String(capacity));
+    res.setHeader("RateLimit-Remaining", String(remaining));
+    res.setHeader("RateLimit-Reset", String(Math.ceil((now + msUntilNextToken) / 1000)));
+
+    attachTokenBucketContext(req, remaining, capacity, resetAt, false);
+    next();
+  }) as RateLimitRequestHandler;
+}
+
 export function createPerUserRateLimiter(options: Partial<Options> = {}): RateLimitRequestHandler {
   return createRateLimiter({
     windowMs: 60 * 1000,
     limit: 60,
     ...options,
-    keyGenerator: (req: Request) => {
-      const overrideKey = options.keyGenerator?.(req);
-      if (typeof overrideKey === "string" && overrideKey.trim().length > 0) {
-        return overrideKey;
-      }
-
-      return getAuthenticatedUserKey(req) ?? `ip:${getClientIp(req)}`;
-    },
   });
 }
