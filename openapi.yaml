@@ -482,6 +482,21 @@ components:
         - featuredAt
         - featuredBy
         - changed
+    ForceResolveResponse:
+      type: object
+      properties:
+        marketId:
+          type: string
+        winningOutcome:
+          type: string
+        forceResolved:
+          type: boolean
+          enum:
+            - true
+      required:
+        - marketId
+        - winningOutcome
+        - forceResolved
     FeatureFlag:
       type: object
       properties:
@@ -2171,6 +2186,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /api/admin/force-resolve/{id}:
+    post:
+      operationId: forceResolveAdmin
+      tags:
+        - Admin
+      summary: Force-resolve a stuck market (admin only, idempotent)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                winningOutcome:
+                  type: string
+                  minLength: 1
+                  description: The outcome to set as the winner
+                  example: 'yes'
+              required:
+                - winningOutcome
+      responses:
+        '200':
+          description: Market force-resolved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ForceResolveResponse'
+                required:
+                  - data
+        '400':
+          description: Validation error — missing or invalid winningOutcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
+        '403':
+          description: Forbidden — missing or invalid admin JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          description: Market already resolved or force-finalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '422':
+          description: Market has not yet reached its resolution deadline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorBody'
   /api/admin/feature-flags:
     get:
       operationId: listAdminFeatureFlags

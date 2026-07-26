@@ -960,6 +960,68 @@ registry.registerPath({
   },
 });
 
+const ForceResolveResponse = z
+  .object({
+    marketId: z.string(),
+    winningOutcome: z.string(),
+    forceResolved: z.literal(true),
+  })
+  .openapi("ForceResolveResponse");
+
+registry.registerPath({
+  method: "post",
+  path: "/api/admin/force-resolve/{id}",
+  operationId: "forceResolveAdmin",
+  tags: ["Admin"],
+  summary: "Force-resolve a stuck market (admin only, idempotent)",
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            winningOutcome: z.string().min(1).openapi({
+              description: "The outcome to set as the winner",
+              example: "yes",
+            }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Market force-resolved successfully",
+      content: {
+        "application/json": {
+          schema: z.object({ data: ForceResolveResponse }),
+        },
+      },
+    },
+    400: {
+      description: "Validation error — missing or invalid winningOutcome",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    403: {
+      description: "Forbidden — missing or invalid admin JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    404: {
+      description: "Market not found",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    409: {
+      description: "Market already resolved or force-finalized",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    422: {
+      description: "Market has not yet reached its resolution deadline",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+  },
+});
+
 registry.registerPath({
   method: "delete",
   path: "/api/admin/markets/{id}/feature",

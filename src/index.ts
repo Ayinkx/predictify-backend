@@ -49,6 +49,7 @@ import { backupVerificationWorker } from "./workers/backupVerificationWorker";
 import { reconciliationWorker } from "./workers/reconciliationWorker";
 import { rateLimitRouter } from "./routes/rate-limit";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
+import { forceResolveRouter } from "./routes/admin/force-resolve";
 import { quotaRequestsRouter } from "./routes/quota/requests";
 import { adminCircuitBreakerRouter } from "./routes/admin/circuit-breaker";
 import { scheduledReportsRouter } from "./routes/reports/scheduled";
@@ -158,6 +159,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
+  app.use("/api/admin/force-resolve", forceResolveRouter);
   app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
   app.use("/api/reports/scheduled", scheduledReportsRouter);
   app.use("/api/stats", statsRouter);

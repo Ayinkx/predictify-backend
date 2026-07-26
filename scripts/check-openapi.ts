@@ -36,6 +36,9 @@ const EXPECTED_ROUTES: RouteEntry[] = [
   { method: "get", path: "/api/admin/feature-flags/{key}" },
   { method: "patch", path: "/api/admin/feature-flags/{key}" },
   { method: "delete", path: "/api/admin/feature-flags/{key}" },
+  { method: "post", path: "/api/admin/markets/{id}/feature" },
+  { method: "delete", path: "/api/admin/markets/{id}/feature" },
+  { method: "post", path: "/api/admin/force-resolve/{id}" },
 ];
 
 function key(route: RouteEntry): string {
