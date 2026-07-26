@@ -13,128 +13,14 @@ import { RouteErrorFactory } from "../errors";
 import { conditionalGet } from "../middleware/etag";
 import { accessLog } from "../middleware/accessLog";
 import { requestTimeout } from "../middleware/timeout";
-import { requireAuth } from "../middleware/requireAuth";
-import { AuthenticatedRequest } from "../middleware/auth";
-import { db } from "../db/client";
-import { refreshTokens } from "../db/schema";
-import { logger } from "../config/logger";
-import { getRequestId } from "../lib/requestContext";
-import { decodeCursor, encodeCursor, clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
+import { authHealthRouter } from "./auth/health";
 
 export const authRouter = Router();
 authRouter.use(accessLog);
 authRouter.use(requestTimeout(15000));
 
-// ── Cursor-paginated session list (no rate limiting on GET) ──────────────
-
-const sessionListQuerySchema = z.object({
-  cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_PAGE_SIZE),
-});
-
-authRouter.get(
-  "/",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const reqId = getRequestId();
-
-    try {
-      const queryParse = sessionListQuerySchema.safeParse(req.query);
-      if (!queryParse.success) {
-        logger.warn(
-          { reqId, issues: queryParse.error.issues },
-          "auth_sessions_list_invalid_query",
-        );
-        res.status(400).json({
-          error: {
-            code: "validation_error",
-            message:
-              queryParse.error.issues[0]?.message ?? "invalid query parameters",
-            requestId: reqId,
-          },
-        });
-        return;
-      }
-
-      const { cursor, limit: rawLimit } = queryParse.data;
-      const limit = clampLimit(rawLimit);
-      const userId = (req as AuthenticatedRequest).user!.id;
-
-      const cursorKey = decodeCursor(cursor);
-
-      const conditions = [
-        eq(refreshTokens.userId, userId),
-        isNull(refreshTokens.revokedAt),
-        gt(refreshTokens.expiresAt, new Date()),
-      ];
-
-      if (cursorKey) {
-        const cursorTime = new Date(cursorKey.sortValue);
-        conditions.push(
-          or(
-            lt(refreshTokens.createdAt, cursorTime),
-            and(
-              eq(refreshTokens.createdAt, cursorTime),
-              lt(refreshTokens.id, cursorKey.id),
-            ),
-          )!,
-        );
-      }
-
-      const rows = await db
-        .select({
-          id: refreshTokens.id,
-          familyId: refreshTokens.familyId,
-          createdAt: refreshTokens.createdAt,
-          expiresAt: refreshTokens.expiresAt,
-        })
-        .from(refreshTokens)
-        .where(and(...conditions))
-        .orderBy(desc(refreshTokens.createdAt), desc(refreshTokens.id))
-        .limit(limit + 1);
-
-      const hasMore = rows.length > limit;
-      const data = rows.slice(0, limit);
-
-      // Deduplicate by familyId: keep only the most recent token per family.
-      const byFamily = new Map<string, (typeof data)[number]>();
-      for (const row of data) {
-        const existing = byFamily.get(row.familyId);
-        if (!existing || row.createdAt > existing.createdAt) {
-          byFamily.set(row.familyId, row);
-        }
-      }
-      const deduped = Array.from(byFamily.values()).sort(
-        (a, b) => (a.createdAt < b.createdAt ? 1 : -1),
-      );
-
-      const last = deduped[deduped.length - 1];
-      const nextCursor =
-        hasMore && last
-          ? encodeCursor({
-              sortValue: last.createdAt.toISOString(),
-              id: last.id,
-            })
-          : null;
-
-      const serialized = deduped.map((r) => ({
-        id: r.id,
-        familyId: r.familyId,
-        createdAt: r.createdAt.toISOString(),
-        expiresAt: r.expiresAt.toISOString(),
-      }));
-
-      logger.info(
-        { reqId, userId, count: serialized.length, hasNext: !!nextCursor },
-        "auth_sessions_list_served",
-      );
-
-      res.json({ data: serialized, nextCursor });
-    } catch (err) {
-      next(err);
-    }
-  },
-);
+// ── Health probe (no auth required) ───────────────────────────────────────
+authRouter.use("/health", authHealthRouter);
 
 function getAuthRateLimitKey(req: { body?: unknown; socket?: { remoteAddress?: string | null } }): string {
   const body = typeof req.body === "object" && req.body !== null ? req.body as Record<string, unknown> : undefined;

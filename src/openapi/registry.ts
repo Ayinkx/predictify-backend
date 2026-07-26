@@ -387,56 +387,40 @@ registry.registerPath({
   },
 });
 
-// ── GET /api/auth (cursor-paginated sessions) ───────────────────────────────
+// ── GET /api/auth/health ────────────────────────────────────────────────────
 
-const SessionSummary = z
+const AuthHealthResponse = z
   .object({
-    id: z.string().uuid(),
-    familyId: z.string().uuid(),
-    createdAt: z.string().datetime(),
-    expiresAt: z.string().datetime(),
+    status: z.enum(["ok", "down"]),
+    correlationId: z.string(),
+    checkedAt: z.string().datetime(),
+    dependencies: z.object({
+      database: z.object({
+        status: z.enum(["ok", "down"]),
+        latencyMs: z.number(),
+        error: z.string().optional(),
+      }),
+    }),
   })
-  .openapi("SessionSummary");
-
-const AuthSessionsListResponse = z
-  .object({
-    data: z.array(SessionSummary),
-    nextCursor: z.string().nullable(),
-  })
-  .openapi("AuthSessionsListResponse");
+  .openapi("AuthHealthResponse");
 
 registry.registerPath({
   method: "get",
-  path: "/api/auth",
-  operationId: "listAuthSessions",
-  tags: ["Auth"],
-  summary: "List active sessions with cursor pagination",
+  path: "/api/auth/health",
+  operationId: "authHealth",
+  tags: ["Health"],
+  summary: "Health probe for /api/auth dependencies",
   description:
-    "Returns a cursor-paginated list of active refresh-token sessions for the " +
-    "authenticated user. Sessions are deduplicated by familyId so only the " +
-    "most recent token per refresh-token family is returned. " +
-    "Sort order is `createdAt DESC, id DESC`.",
-  security: [{ bearerAuth: [] }],
-  request: {
-    query: z.object({
-      cursor: z.string().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
-    }),
-  },
+    "Probes the Postgres database used by auth operations (challenge store, " +
+    "refresh-token store). No authentication required.",
   responses: {
     200: {
-      description: "Paginated list of active sessions",
-      content: {
-        "application/json": { schema: AuthSessionsListResponse },
-      },
+      description: "Auth service dependencies are healthy",
+      content: { "application/json": { schema: AuthHealthResponse } },
     },
-    400: {
-      description: "Validation error",
-      content: { "application/json": { schema: ValidationErrorBody } },
-    },
-    401: {
-      description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
+    503: {
+      description: "Database probe failed",
+      content: { "application/json": { schema: AuthHealthResponse } },
     },
   },
 });
