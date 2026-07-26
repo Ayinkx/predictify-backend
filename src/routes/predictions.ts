@@ -10,7 +10,12 @@ import { listPredictions } from "../repositories/predictionRepo";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
-import { requestTimeout } from "../middleware/timeout";
+import {
+  predictionsListTotal,
+  predictionExplainTotal,
+  predictionsRequestDuration,
+} from "../metrics/registry";
+import { clampLimit } from "../utils/cursor";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { listPredictionsQuerySchema } from "../validators/predictions";
 
@@ -77,11 +82,17 @@ predictionsRouter.get(
   "/",
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const reqId = getRequestId();
+    const startMs = Date.now();
 
     try {
       // ── Input validation ─────────────────────────────────────────────────
       const queryParse = listPredictionsQuerySchema.safeParse(req.query);
       if (!queryParse.success) {
+        predictionsListTotal.inc({ outcome: "error" });
+        predictionsRequestDuration.observe(
+          { handler: "list", outcome: "error" },
+          (Date.now() - startMs) / 1000,
+        );
         logger.warn(
           { reqId, issues: queryParse.error.issues },
           "predictions_list_invalid_query",
@@ -132,8 +143,19 @@ predictionsRouter.get(
         "predictions_list_served",
       );
 
-      res.json(payload);
+      predictionsListTotal.inc({ outcome: "success" });
+      predictionsRequestDuration.observe(
+        { handler: "list", outcome: "success" },
+        (Date.now() - startMs) / 1000,
+      );
+
+      res.json({ data: page.data, nextCursor: page.nextCursor });
     } catch (err) {
+      predictionsListTotal.inc({ outcome: "error" });
+      predictionsRequestDuration.observe(
+        { handler: "list", outcome: "error" },
+        (Date.now() - startMs) / 1000,
+      );
       next(err);
     }
   },
@@ -145,12 +167,22 @@ predictionsRouter.get(
  * Shows oracle inputs, market resolution, and payout calculation.
  */
 predictionsRouter.get("/:id/explain", async (req, res, next) => {
+  const startMs = Date.now();
   try {
     const { id } = req.params;
     const explanation = await getPredictionExplanation(id);
-    if (conditionalGet(explanation, req, res)) return;
+    predictionExplainTotal.inc({ outcome: "success" });
+    predictionsRequestDuration.observe(
+      { handler: "explain", outcome: "success" },
+      (Date.now() - startMs) / 1000,
+    );
     res.json(explanation);
   } catch (error) {
+    predictionExplainTotal.inc({ outcome: "error" });
+    predictionsRequestDuration.observe(
+      { handler: "explain", outcome: "error" },
+      (Date.now() - startMs) / 1000,
+    );
     next(error);
   }
 });

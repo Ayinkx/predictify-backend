@@ -69,6 +69,24 @@ export const signupAnomalyTopScore = new Gauge({
   registers: [register],
 });
 
+export const predictionsListTotal = new Counter({
+  name: "predictions_list_total",
+  help: "Total number of GET /api/predictions requests, segmented by outcome (success, error)",
+  labelNames: ["outcome"] as const,
+  registers: [register],
+});
+
+export const predictionExplainTotal = new Counter({
+  name: "prediction_explain_total",
+  help: "Total number of GET /api/predictions/:id/explain requests, segmented by outcome (success, error)",
+  labelNames: ["outcome"] as const,
+  registers: [register],
+});
+
+export const predictionsRequestDuration = new Histogram({
+  name: "predictions_request_duration_seconds",
+  help: "Duration of /api/predictions endpoint handlers in seconds",
+  labelNames: ["handler", "outcome"] as const,
 export const usersEndpointRequestsTotal = new Counter({
   name: "users_endpoint_requests_total",
   help: "Total number of requests to /api/users endpoints, segmented by method, route, and status",
