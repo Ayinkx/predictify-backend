@@ -28,6 +28,7 @@ import { notificationsRouter } from "./routes/notifications";
 import { socialRouter } from "./routes/social";
 import { adminAuditRouter } from "./routes/admin/audit";
 import { adminMarketsRouter } from "./routes/admin/markets";
+import { adminReconciliationRouter } from "./routes/admin/reconciliation";
 import { adminSchemaVersionsRouter } from "./routes/admin/schema-versions";
 import { devicesRouter } from "./routes/devices";
 import { errorHandler } from "./middleware/errorHandler";
@@ -140,6 +141,7 @@ export function createApp(_deps: AppDeps = {}): express.Express {
   app.use("/api/admin/audit", adminAuditRouter);
   app.use("/api/admin/users", adminUsersRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
+  app.use("/api/admin/recon", adminReconciliationRouter);
   app.use("/api/admin/db", adminDbVacuumRouter);
 
   app.get("/metrics", async (req, res) => {

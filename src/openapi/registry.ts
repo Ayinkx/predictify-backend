@@ -1714,3 +1714,98 @@ registry.registerPath({
     },
   },
 });
+
+// ── /api/admin/recon ─────────────────────────────────────────────────────────
+
+const ReconciliationSidePosition = z
+  .object({
+    stellarAddress: z.string(),
+    outcome: z.string(),
+    amount: z.string(),
+  })
+  .openapi("ReconciliationSidePosition");
+
+const ReconciliationDiffEntry = z
+  .object({
+    key: z.object({ stellarAddress: z.string(), outcome: z.string() }),
+    dbAmount: z.string(),
+    onChainAmount: z.string().nullable(),
+    difference: z.string().nullable(),
+    status: z.enum(["match", "mismatch", "missing_on_chain", "missing_in_db"]),
+  })
+  .openapi("ReconciliationDiffEntry");
+
+const ReconciliationSummary = z
+  .object({
+    totalKeys: z.number().int(),
+    matches: z.number().int(),
+    mismatches: z.number().int(),
+    missingOnChain: z.number().int(),
+    missingInDb: z.number().int(),
+  })
+  .openapi("ReconciliationSummary");
+
+const MarketReconciliationResult = z
+  .object({
+    marketId: z.string(),
+    correlationId: z.string(),
+    generatedAt: z.string().datetime(),
+    status: z.enum(["ok", "partial"]),
+    dbSnapshot: z.object({
+      positions: z.array(ReconciliationSidePosition),
+      totalAmount: z.string(),
+    }),
+    onChainSnapshot: z.object({
+      positions: z.array(ReconciliationSidePosition),
+      totalAmount: z.string(),
+      available: z.boolean(),
+      source: z.string(),
+      unavailableReason: z.string().nullable(),
+    }),
+    summary: ReconciliationSummary,
+    diffs: z.array(ReconciliationDiffEntry),
+  })
+  .openapi("MarketReconciliationResult");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/recon/markets/{id}",
+  operationId: "adminReconcileMarket",
+  tags: ["Admin"],
+  summary: "On-demand market reconciliation (admin only)",
+  description:
+    "Compares confirmed on-chain positions against the database snapshot for a " +
+    "single market and returns a structured diff. " +
+    "Every call is audit-logged as `admin.reconciliation.market.inspect`. " +
+    "Returns `status: \"partial\"` when the on-chain adapter is not yet wired.",
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string().min(1).max(255).describe("Market ID") }),
+  },
+  responses: {
+    200: {
+      description: "Reconciliation result",
+      content: {
+        "application/json": {
+          schema: z.object({ data: MarketReconciliationResult }),
+        },
+      },
+    },
+    400: {
+      description: "Validation error — invalid market ID",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    403: {
+      description: "Forbidden — missing or non-admin JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    404: {
+      description: "Market not found",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    500: {
+      description: "Internal server error",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
