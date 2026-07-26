@@ -83,50 +83,17 @@ export const signupAnomalyTopScore = new Gauge({
   registers: [register],
 });
 
-export const predictionsListTotal = new Counter({
-  name: "predictions_list_total",
-  help: "Total number of GET /api/predictions requests, segmented by outcome (success, error)",
-  labelNames: ["outcome"] as const,
-  registers: [register],
-});
-
-export const predictionExplainTotal = new Counter({
-  name: "prediction_explain_total",
-  help: "Total number of GET /api/predictions/:id/explain requests, segmented by outcome (success, error)",
-  labelNames: ["outcome"] as const,
-  registers: [register],
-});
-
-export const predictionsRequestDuration = new Histogram({
-  name: "predictions_request_duration_seconds",
-  help: "Duration of /api/predictions endpoint handlers in seconds",
-  labelNames: ["handler", "outcome"] as const,
-export const usersEndpointRequestsTotal = new Counter({
-  name: "users_endpoint_requests_total",
-  help: "Total number of requests to /api/users endpoints, segmented by method, route, and status",
-  labelNames: ["method", "route", "status"] as const,
-  registers: [register],
-});
-
-export const usersEndpointDuration = new Histogram({
-  name: "users_endpoint_duration_seconds",
-  help: "Request duration in seconds for /api/users endpoints, segmented by method, route, and status",
-  labelNames: ["method", "route", "status"] as const,
+export const marketsRequestDuration = new Histogram({
+  name: "markets_request_duration_seconds",
+  help: "Duration of /api/markets requests in seconds, segmented by endpoint, method, and status code",
+  labelNames: ["endpoint", "method", "status"] as const,
   buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
   registers: [register],
 });
 
-export const endpointRequestsTotal = new Counter({
-  name: "endpoint_requests_total",
-  help: "Total number of requests per endpoint, segmented by method, route, and status",
-  labelNames: ["method", "route", "status"] as const,
-  registers: [register],
-});
-
-export const endpointRequestDuration = new Histogram({
-  name: "endpoint_request_duration_seconds",
-  help: "Request duration in seconds per endpoint, segmented by method, route, and status",
-  labelNames: ["method", "route", "status"] as const,
-  buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
+export const marketsRequestsTotal = new Counter({
+  name: "markets_requests_total",
+  help: "Total number of /api/markets requests, segmented by endpoint, method, and status code",
+  labelNames: ["endpoint", "method", "status"] as const,
   registers: [register],
 });

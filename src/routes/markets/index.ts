@@ -1,5 +1,5 @@
 import { Router } from "express";
-import jwt from "jsonwebtoken";
+import type { Request, Response, NextFunction } from "express";
 import {
   listMarkets,
   listUpcomingMarkets,
@@ -16,6 +16,7 @@ import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
 import { RouteErrorFactory } from "../../errors";
 import { conditionalGet } from "../../middleware/etag";
+import { marketsRequestDuration, marketsRequestsTotal } from "../../metrics/registry";
 import { recommendationsRouter } from "./recommendations";
 import { trendingRouter } from "./trending";
 import { tagsRouter } from "./tags";
@@ -33,7 +34,21 @@ import {
 
 export const marketsRouter = Router();
 
-marketsRouter.use(accessLog);
+function trackMarketsMetrics(endpoint: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const start = process.hrtime.bigint();
+
+    res.on("finish", () => {
+      const durationSec = Number(process.hrtime.bigint() - start) / 1e9;
+      const labels = { endpoint, method: req.method, status: res.statusCode };
+      marketsRequestDuration.observe(labels, durationSec);
+      marketsRequestsTotal.inc(labels);
+    });
+
+    next();
+  };
+}
+
 marketsRouter.use(rateLimitAnon);
 
 // ── Per-user rate limiting for Bearer-token requests ────────────────────
@@ -75,7 +90,7 @@ marketsRouter.use("/:id/prediction-count", predictionCountRouter);
 marketsRouter.use("/:id/audit", marketAuditRouter);
 marketsRouter.use("/:id/disputes", disputesRouter);
 
-marketsRouter.get("/search", async (req, res, next) => {
+marketsRouter.get("/search", trackMarketsMetrics("search"), async (req, res, next) => {
   const reqId = String((req as { id?: unknown }).id ?? "anon");
   try {
     const parsed = searchMarketsQuerySchema.safeParse(req.query);
@@ -128,7 +143,7 @@ marketsRouter.get("/search", async (req, res, next) => {
   }
 });
 
-marketsRouter.get("/", async (req, res, next) => {
+marketsRouter.get("/", trackMarketsMetrics("list"), async (req, res, next) => {
   const reqId = String((req as { id?: unknown }).id ?? "anon");
   try {
     const parsed = listMarketsQuerySchema.safeParse(req.query);
@@ -165,7 +180,7 @@ marketsRouter.get("/", async (req, res, next) => {
   }
 });
 
-marketsRouter.get("/featured", async (req, res, next) => {
+marketsRouter.get("/featured", trackMarketsMetrics("featured"), async (req, res, next) => {
   const reqId = String((req as { id?: unknown }).id ?? "anon");
   try {
     const parsed = featuredMarketsQuerySchema.safeParse(req.query);
@@ -182,7 +197,7 @@ marketsRouter.get("/featured", async (req, res, next) => {
   }
 });
 
-marketsRouter.get("/upcoming", async (req, res, next) => {
+marketsRouter.get("/upcoming", trackMarketsMetrics("upcoming"), async (req, res, next) => {
   const reqId = String((req as { id?: unknown }).id ?? "anon");
   try {
     const parsed = upcomingMarketsQuerySchema.safeParse(req.query);
@@ -206,7 +221,7 @@ marketsRouter.get("/upcoming", async (req, res, next) => {
   }
 });
 
-marketsRouter.get("/:id", async (req, res, next) => {
+marketsRouter.get("/:id", trackMarketsMetrics("get"), async (req, res, next) => {
   const reqId = String((req as { id?: unknown }).id ?? "anon");
 
   try {
@@ -247,7 +262,7 @@ marketsRouter.get("/:id", async (req, res, next) => {
   }
 });
 
-marketsRouter.patch("/:id", requireAdmin, async (req: AuthenticatedRequest, res, next) => {
+marketsRouter.patch("/:id", trackMarketsMetrics("patch"), requireAdmin, async (req: AuthenticatedRequest, res, next) => {
   const reqId = String((req as { id?: unknown }).id ?? "anon");
   const adminAddress = req.user?.stellarAddress;
 
