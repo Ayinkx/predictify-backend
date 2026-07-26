@@ -837,6 +837,58 @@ registry.registerPath({
   },
 });
 
+const RateLimitAuditEntry = z
+  .object({
+    id: z.string().uuid(),
+    action: z.literal("rate_limit.blocked"),
+    walletAddress: z.string().nullable(),
+    ip: z.string(),
+    correlationId: z.string(),
+    rateLimitContext: z.unknown().nullable(),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("RateLimitAuditEntry");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/rate-limit",
+  operationId: "listRateLimitEvents",
+  tags: ["Rate Limiting"],
+  summary: "List rate-limit audit events (admin only)",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      limit: z.coerce.number().int().positive().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated rate-limit audit log",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(RateLimitAuditEntry),
+            nextCursor: z.string().nullable(),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Invalid query parameters",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
 // ── /api/markets/featured ────────────────────────────────────────────────────
 
 registry.registerPath({

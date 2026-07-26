@@ -46,7 +46,7 @@ import { WebhookWorker } from "./workers/webhookWorker";
 import { marketResolverWorker } from "./workers/marketResolver";
 import { backupVerificationWorker } from "./workers/backupVerificationWorker";
 import { reconciliationWorker } from "./workers/reconciliationWorker";
-import { rateLimitStatusRouter } from "./routes/rate-limit/status";
+import { rateLimitRouter } from "./routes/rate-limit";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
 import { quotaRequestsRouter } from "./routes/quota/requests";
 import { adminCircuitBreakerRouter } from "./routes/admin/circuit-breaker";
@@ -140,7 +140,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/predictions", predictionsRouter);
   app.use("/api/leaderboard", leaderboardRouter);
   app.use("/api/leaderboard/global", globalLeaderboardRouter);
-  app.use("/api/rate-limit", rateLimitStatusRouter);
+  app.use("/api/rate-limit", rateLimitRouter);
   app.use("/api/quota/requests", quotaRequestsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/webhooks", webhooksRouter);
