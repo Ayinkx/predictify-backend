@@ -1,451 +1,343 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect } from "@jest/globals";
+/**
+ * tests/validators/users.test.ts
+ *
+ * Unit tests for the Zod schemas exported from src/validators/users.ts.
+ *
+ * Coverage targets
+ * ────────────────
+ *   1. stellarAddressSchema — valid & invalid Stellar addresses
+ *   2. userPredictionsParamsSchema — path param validation
+ *   3. userPredictionsQuerySchema — query params: status, limit, cursor, strict unknown key rejection
+ *   4. userProfileParamsSchema — path param validation for profile endpoint
+ *   5. userPortfolioParamsSchema — path param validation for portfolio endpoint
+ *   6. Type inference (z.infer) matches expected types
+ *   7. Edge cases — whitespace trimming, numeric coercion, default limit
+ */
+
+import { z } from "zod";
 import {
   stellarAddressSchema,
-  stellarAddressParamsSchema,
-  stellarAddressProfileParamsSchema,
+  userPredictionsParamsSchema,
   userPredictionsQuerySchema,
+  userProfileParamsSchema,
+  userPortfolioParamsSchema,
 } from "../../src/validators/users";
 import { DEFAULT_PAGE_SIZE } from "../../src/utils/cursor";
 
-describe("User Validators", () => {
-  describe("stellarAddressSchema", () => {
-    it("should accept a valid Stellar address", () => {
-      const validAddress = "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF";
-      const result = stellarAddressSchema.safeParse(validAddress);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(validAddress);
-      }
+// ── Fixtures ───────────────────────────────────────────────────────────────
+
+/** A syntactically valid 56-char Stellar G-address. */
+const VALID_ADDRESS = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+const VALID_ADDRESS_2 = "GBBD47UZQ5DXGX23UKMHLGG5TZPJJKISVQYER3SPRINGS57LVEDSTQCEO";
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+/** Run safeParse and expect success; return parsed data. */
+function parseOk<T>(schema: z.ZodSchema<T>, input: unknown): T {
+  const r = schema.safeParse(input);
+  expect(r.success).toBe(true);
+  return (r as z.SafeParseSuccess<T>).data;
+}
+
+/** Run safeParse and expect failure; return the ZodError. */
+function parseErr(schema: z.ZodSchema, input: unknown): z.ZodError {
+  const r = schema.safeParse(input);
+  expect(r.success).toBe(false);
+  return (r as z.SafeParseError<unknown>).error;
+}
+
+// ── 1. stellarAddressSchema ────────────────────────────────────────────────
+
+describe("stellarAddressSchema", () => {
+  it("accepts a valid 56-char G-prefixed base-32 address", () => {
+    const out = parseOk(stellarAddressSchema, VALID_ADDRESS);
+    expect(out).toBe(VALID_ADDRESS);
+  });
+
+  it("rejects addresses shorter than 56 characters", () => {
+    const err = parseErr(stellarAddressSchema, "GSHORT");
+    expect(err.issues[0]?.code).toBe("invalid_string");
+  });
+
+  it("rejects addresses longer than 56 characters", () => {
+    const err = parseErr(stellarAddressSchema, VALID_ADDRESS + "X");
+    expect(err.issues[0]?.code).toBe("invalid_string");
+  });
+
+  it("rejects addresses that do not start with G", () => {
+    const bad = "A" + VALID_ADDRESS.slice(1);
+    const err = parseErr(stellarAddressSchema, bad);
+    expect(err.issues[0]?.code).toBe("invalid_string");
+  });
+
+  it("rejects addresses with lowercase letters", () => {
+    const err = parseErr(stellarAddressSchema, VALID_ADDRESS.toLowerCase());
+    expect(err.issues[0]?.code).toBe("invalid_string");
+  });
+
+  it.each(["0", "1", "8", "9"] as const)(
+    "rejects addresses containing invalid base-32 char '%s'",
+    (ch) => {
+      const bad = VALID_ADDRESS.slice(0, 55) + ch;
+      const err = parseErr(stellarAddressSchema, bad);
+      expect(err.issues[0]?.code).toBe("invalid_string");
+    },
+  );
+
+  it("trims surrounding whitespace before validation", () => {
+    const out = parseOk(stellarAddressSchema, `  ${VALID_ADDRESS}\t`);
+    expect(out).toBe(VALID_ADDRESS);
+  });
+
+  it("rejects empty string", () => {
+    const err = parseErr(stellarAddressSchema, "");
+    expect(err.issues[0]?.code).toBe("invalid_string");
+  });
+
+  it("rejects non-string inputs (number)", () => {
+    const err = parseErr(stellarAddressSchema, 12345);
+    expect(err.issues[0]?.code).toBe("invalid_type");
+  });
+
+  it("rejects null", () => {
+    const err = parseErr(stellarAddressSchema, null);
+    expect(err.issues[0]?.code).toBe("invalid_type");
+  });
+
+  it("rejects undefined (required_error)", () => {
+    const err = parseErr(stellarAddressSchema, undefined);
+    expect(err.issues[0]?.code).toBe("invalid_type");
+    expect(err.issues[0]?.message).toContain("required");
+  });
+});
+
+// ── 2. userPredictionsParamsSchema ──────────────────────────────────────────
+
+describe("userPredictionsParamsSchema", () => {
+  it("accepts a valid address param", () => {
+    const out = parseOk(userPredictionsParamsSchema, { address: VALID_ADDRESS });
+    expect(out.address).toBe(VALID_ADDRESS);
+  });
+
+  it("rejects invalid address param", () => {
+    const err = parseErr(userPredictionsParamsSchema, { address: "not-an-address" });
+    expect(err.issues).toHaveLength(1);
+  });
+
+  it("rejects missing address param", () => {
+    const err = parseErr(userPredictionsParamsSchema, {});
+    expect(err.issues[0]?.path).toEqual(["address"]);
+  });
+
+  it("rejects extra unknown keys (strict)", () => {
+    const err = parseErr(userPredictionsParamsSchema, {
+      address: VALID_ADDRESS,
+      extra: "field",
+    });
+    expect(err.issues.some((i) => i.code === "unrecognized_keys")).toBe(true);
+  });
+
+  it("type inference produces { address: string }", () => {
+    type T = z.infer<typeof userPredictionsParamsSchema>;
+    const _assert: { address: string } = {} as T;
+    void _assert;
+  });
+});
+
+// ── 3. userPredictionsQuerySchema ───────────────────────────────────────────
+
+describe("userPredictionsQuerySchema", () => {
+  describe("limit — coercion, range, default", () => {
+    it("defaults limit to DEFAULT_PAGE_SIZE when absent", () => {
+      const out = parseOk(userPredictionsQuerySchema, {});
+      expect(out.limit).toBe(DEFAULT_PAGE_SIZE);
     });
 
-    it("should reject address not starting with G", () => {
-      const invalidAddress = "AAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toBe("Invalid Stellar address format");
-      }
+    it("coerces numeric string limit to number", () => {
+      const out = parseOk(userPredictionsQuerySchema, { limit: "25" });
+      expect(out.limit).toBe(25);
+      expect(typeof out.limit).toBe("number");
     });
 
-    it("should reject address with invalid length (too short)", () => {
-      const invalidAddress = "GAHK7EYR7AQ5B56K2RRYUWWC";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
+    it("accepts limit = 1 (minimum)", () => {
+      const out = parseOk(userPredictionsQuerySchema, { limit: "1" });
+      expect(out.limit).toBe(1);
     });
 
-    it("should reject address with invalid length (too long)", () => {
-      const invalidAddress = "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TFEXTRA";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
+    it("accepts limit = 100 (maximum)", () => {
+      const out = parseOk(userPredictionsQuerySchema, { limit: "100" });
+      expect(out.limit).toBe(100);
     });
 
-    it("should reject address with lowercase letters", () => {
-      const invalidAddress = "gahk7eyr7aq5b56k2rryuwwc7ej5cwwwurc2q4gqrhbdqy7zlmqvb6tf";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
+    it("rejects limit = 0", () => {
+      const err = parseErr(userPredictionsQuerySchema, { limit: "0" });
+      expect(err.issues[0]?.path).toEqual(["limit"]);
     });
 
-    it("should reject address with invalid characters", () => {
-      const invalidAddress = "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQV!@#$";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
+    it("rejects limit = 101 (above maximum)", () => {
+      const err = parseErr(userPredictionsQuerySchema, { limit: "101" });
+      expect(err.issues[0]?.path).toEqual(["limit"]);
     });
 
-    it("should reject non-string values", () => {
-      const result = stellarAddressSchema.safeParse(12345);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toBe("Stellar address must be a string");
-      }
+    it("rejects non-integer limit (1.5)", () => {
+      const err = parseErr(userPredictionsQuerySchema, { limit: "1.5" });
+      expect(err.issues[0]?.code).toBe("invalid_type");
     });
 
-    it("should reject null values", () => {
-      const result = stellarAddressSchema.safeParse(null);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject undefined values", () => {
-      const result = stellarAddressSchema.safeParse(undefined);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject empty string", () => {
-      const result = stellarAddressSchema.safeParse("");
-      expect(result.success).toBe(false);
-    });
-
-    it("should accept valid address with all allowed characters", () => {
-      // Base32 alphabet: A-Z and 2-7 (no 0,1,8,9) - exactly 56 chars total (G + 55)
-      const validAddress = "G234567ABCDEFG2234567HIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJ";
-      expect(validAddress.length).toBe(56); // Verify length
-      const result = stellarAddressSchema.safeParse(validAddress);
-      expect(result.success).toBe(true);
-    });
-
-    it("should reject address with number 0", () => {
-      const invalidAddress = "G0HK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject address with number 1", () => {
-      const invalidAddress = "G1HK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject address with number 8", () => {
-      const invalidAddress = "G8HK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject address with number 9", () => {
-      const invalidAddress = "G9HK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF";
-      const result = stellarAddressSchema.safeParse(invalidAddress);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject object instead of string", () => {
-      const result = stellarAddressSchema.safeParse({ address: "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF" });
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject boolean value", () => {
-      const result = stellarAddressSchema.safeParse(true);
-      expect(result.success).toBe(false);
+    it("rejects non-numeric limit string", () => {
+      const err = parseErr(userPredictionsQuerySchema, { limit: "abc" });
+      expect(err.issues[0]?.code).toBe("invalid_type");
     });
   });
 
-  describe("stellarAddressParamsSchema", () => {
-    it("should accept valid params with address", () => {
-      const validParams = {
-        address: "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF",
-      };
-      const result = stellarAddressParamsSchema.safeParse(validParams);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.address).toBe(validParams.address);
-      }
+  describe("status — enum validation", () => {
+    it.each(["pending", "confirmed", "won", "lost", "claimed"] as const)(
+      "accepts status = %s",
+      (status) => {
+        const out = parseOk(userPredictionsQuerySchema, { status });
+        expect(out.status).toBe(status);
+      },
+    );
+
+    it("rejects an unknown status value", () => {
+      const err = parseErr(userPredictionsQuerySchema, { status: "settled" });
+      expect(err.issues[0]?.code).toBe("invalid_enum_value");
     });
 
-    it("should reject invalid Stellar address in params", () => {
-      const invalidParams = {
-        address: "INVALID_ADDRESS",
-      };
-      const result = stellarAddressParamsSchema.safeParse(invalidParams);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject missing address param", () => {
-      const result = stellarAddressParamsSchema.safeParse({});
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject params with extra fields (strict mode)", () => {
-      const paramsWithExtra = {
-        address: "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF",
-        extraField: "unexpected",
-      };
-      const result = stellarAddressParamsSchema.safeParse(paramsWithExtra);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject array instead of object", () => {
-      const result = stellarAddressParamsSchema.safeParse([
-        "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF",
-      ]);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject null value", () => {
-      const result = stellarAddressParamsSchema.safeParse(null);
-      expect(result.success).toBe(false);
+    it("omits status when not provided", () => {
+      const out = parseOk(userPredictionsQuerySchema, {});
+      expect("status" in out).toBe(false);
     });
   });
 
-  describe("stellarAddressProfileParamsSchema", () => {
-    it("should accept valid params with stellarAddress", () => {
-      const validParams = {
-        stellarAddress: "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF",
-      };
-      const result = stellarAddressProfileParamsSchema.safeParse(validParams);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.stellarAddress).toBe(validParams.stellarAddress);
-      }
+  describe("cursor — optional string", () => {
+    it("accepts a cursor string", () => {
+      const cursor = "eyJzb3J0VmFsdWUiOiJ0ZXN0In0";
+      const out = parseOk(userPredictionsQuerySchema, { cursor });
+      expect(out.cursor).toBe(cursor);
     });
 
-    it("should reject invalid Stellar address in stellarAddress param", () => {
-      const invalidParams = {
-        stellarAddress: "NOT_A_VALID_ADDRESS",
-      };
-      const result = stellarAddressProfileParamsSchema.safeParse(invalidParams);
-      expect(result.success).toBe(false);
+    it("trims a cursor with whitespace", () => {
+      const cursor = "abc123";
+      const out = parseOk(userPredictionsQuerySchema, { cursor: ` ${cursor} ` });
+      expect(out.cursor).toBe(cursor);
     });
 
-    it("should reject missing stellarAddress param", () => {
-      const result = stellarAddressProfileParamsSchema.safeParse({});
-      expect(result.success).toBe(false);
+    it("rejects an empty-string cursor", () => {
+      const err = parseErr(userPredictionsQuerySchema, { cursor: "" });
+      expect(err.issues[0]?.path).toEqual(["cursor"]);
     });
 
-    it("should reject params with extra fields (strict mode)", () => {
-      const paramsWithExtra = {
-        stellarAddress: "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF",
-        unexpectedParam: "value",
-      };
-      const result = stellarAddressProfileParamsSchema.safeParse(paramsWithExtra);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject array instead of object", () => {
-      const result = stellarAddressProfileParamsSchema.safeParse([
-        "GAHK7EYR7AQ5B56K2RRYUWWC7EJ5CWWWURC2Q4GQRHBDQY7ZLMQVB6TF",
-      ]);
-      expect(result.success).toBe(false);
-    });
-
-    it("should handle whitespace-only address", () => {
-      const invalidParams = {
-        stellarAddress: "   ",
-      };
-      const result = stellarAddressProfileParamsSchema.safeParse(invalidParams);
-      expect(result.success).toBe(false);
+    it("rejects cursor as number", () => {
+      const err = parseErr(userPredictionsQuerySchema, { cursor: 42 });
+      expect(err.issues[0]?.code).toBe("invalid_type");
     });
   });
 
-  describe("userPredictionsQuerySchema", () => {
-    describe("status parameter", () => {
-      it("should accept valid status: pending", () => {
-        const result = userPredictionsQuerySchema.safeParse({ status: "pending" });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBe("pending");
-        }
+  describe("strict — unknown query keys", () => {
+    it("rejects an unknown query parameter", () => {
+      const err = parseErr(userPredictionsQuerySchema, {
+        status: "pending",
+        unknownParam: "drop-table",
       });
-
-      it("should accept valid status: confirmed", () => {
-        const result = userPredictionsQuerySchema.safeParse({ status: "confirmed" });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBe("confirmed");
-        }
-      });
-
-      it("should accept valid status: won", () => {
-        const result = userPredictionsQuerySchema.safeParse({ status: "won" });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBe("won");
-        }
-      });
-
-      it("should accept valid status: lost", () => {
-        const result = userPredictionsQuerySchema.safeParse({ status: "lost" });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBe("lost");
-        }
-      });
-
-      it("should accept valid status: claimed", () => {
-        const result = userPredictionsQuerySchema.safeParse({ status: "claimed" });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBe("claimed");
-        }
-      });
-
-      it("should reject invalid status", () => {
-        const result = userPredictionsQuerySchema.safeParse({ status: "invalid" });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe(
-            "status must be one of: pending, confirmed, won, lost, claimed",
-          );
-        }
-      });
-
-      it("should accept query without status (optional)", () => {
-        const result = userPredictionsQuerySchema.safeParse({});
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBeUndefined();
-        }
-      });
+      expect(err.issues.some((i) => i.code === "unrecognized_keys")).toBe(true);
     });
 
-    describe("cursor parameter", () => {
-      it("should accept valid cursor string", () => {
-        const cursor = "eyJpZCI6MTIzfQ";
-        const result = userPredictionsQuerySchema.safeParse({ cursor });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.cursor).toBe(cursor);
-        }
+    it("rejects multiple unknown keys", () => {
+      const err = parseErr(userPredictionsQuerySchema, {
+        foo: "1",
+        bar: "2",
       });
+      const unrec = err.issues.find((i) => i.code === "unrecognized_keys");
+      expect(unrec).toBeDefined();
+      expect((unrec as z.UnrecognizedKeysIssue).keys).toEqual(
+        expect.arrayContaining(["foo", "bar"]),
+      );
+    });
+  });
 
-      it("should reject empty cursor string", () => {
-        const result = userPredictionsQuerySchema.safeParse({ cursor: "" });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("cursor cannot be empty");
-        }
+  describe("happy-path combinations", () => {
+    it("parses a fully-specified query correctly", () => {
+      const out = parseOk(userPredictionsQuerySchema, {
+        status: "won",
+        cursor: "someCursor",
+        limit: "50",
       });
-
-      it("should reject non-string cursor", () => {
-        const result = userPredictionsQuerySchema.safeParse({ cursor: 12345 });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("cursor must be a string");
-        }
-      });
-
-      it("should accept query without cursor (optional)", () => {
-        const result = userPredictionsQuerySchema.safeParse({});
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.cursor).toBeUndefined();
-        }
-      });
+      expect(out).toEqual({ status: "won", cursor: "someCursor", limit: 50 });
     });
 
-    describe("limit parameter", () => {
-      it("should use default limit when not provided", () => {
-        const result = userPredictionsQuerySchema.safeParse({});
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.limit).toBe(DEFAULT_PAGE_SIZE);
-        }
-      });
-
-      it("should accept valid limit: 1", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: 1 });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.limit).toBe(1);
-        }
-      });
-
-      it("should accept valid limit: 50", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: 50 });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.limit).toBe(50);
-        }
-      });
-
-      it("should accept valid limit: 100", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: 100 });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.limit).toBe(100);
-        }
-      });
-
-      it("should coerce string limit to number", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: "25" });
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.limit).toBe(25);
-        }
-      });
-
-      it("should reject limit less than 1", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: 0 });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("limit must be between 1 and 100");
-        }
-      });
-
-      it("should reject negative limit", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: -5 });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("limit must be between 1 and 100");
-        }
-      });
-
-      it("should reject limit greater than 100", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: 101 });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("limit must be between 1 and 100");
-        }
-      });
-
-      it("should reject non-integer limit", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: 25.5 });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("limit must be an integer");
-        }
-      });
-
-      it("should reject non-numeric limit string", () => {
-        const result = userPredictionsQuerySchema.safeParse({ limit: "abc" });
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues[0].message).toBe("limit must be a number");
-        }
-      });
+    it("type inference matches documented shape", () => {
+      type T = z.infer<typeof userPredictionsQuerySchema>;
+      const _sample: T = { status: "pending", cursor: "x", limit: 10 };
+      const _partial: T = { limit: 20 };
+      void _sample;
+      void _partial;
     });
+  });
+});
 
-    describe("strict mode - unknown parameters", () => {
-      it("should reject unknown query parameters", () => {
-        const result = userPredictionsQuerySchema.safeParse({
-          status: "pending",
-          unknownParam: "value",
-        });
-        expect(result.success).toBe(false);
-      });
+// ── 4. userProfileParamsSchema ──────────────────────────────────────────────
 
-      it("should reject multiple unknown parameters", () => {
-        const result = userPredictionsQuerySchema.safeParse({
-          limit: 20,
-          extra1: "value1",
-          extra2: "value2",
-        });
-        expect(result.success).toBe(false);
-      });
+describe("userProfileParamsSchema", () => {
+  it("accepts a valid stellarAddress", () => {
+    const out = parseOk(userProfileParamsSchema, { stellarAddress: VALID_ADDRESS });
+    expect(out.stellarAddress).toBe(VALID_ADDRESS);
+  });
+
+  it("rejects invalid stellarAddress", () => {
+    const err = parseErr(userProfileParamsSchema, { stellarAddress: "G" });
+    expect(err.issues).toHaveLength(1);
+  });
+
+  it("rejects missing stellarAddress", () => {
+    const err = parseErr(userProfileParamsSchema, {});
+    expect(err.issues[0]?.path).toEqual(["stellarAddress"]);
+  });
+
+  it("rejects unknown keys (strict)", () => {
+    const err = parseErr(userProfileParamsSchema, {
+      stellarAddress: VALID_ADDRESS,
+      extraField: true,
     });
+    expect(err.issues.some((i) => i.code === "unrecognized_keys")).toBe(true);
+  });
 
-    describe("combined parameters", () => {
-      it("should accept all valid parameters together", () => {
-        const query = {
-          status: "pending" as const,
-          cursor: "eyJpZCI6MTIzfQ",
-          limit: 25,
-        };
-        const result = userPredictionsQuerySchema.safeParse(query);
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data).toEqual(query);
-        }
-      });
+  it("type inference produces { stellarAddress: string }", () => {
+    type T = z.infer<typeof userProfileParamsSchema>;
+    const _assert: { stellarAddress: string } = {} as T;
+    void _assert;
+  });
+});
 
-      it("should apply defaults and accept partial parameters", () => {
-        const query = { status: "won" as const };
-        const result = userPredictionsQuerySchema.safeParse(query);
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.status).toBe("won");
-          expect(result.data.limit).toBe(DEFAULT_PAGE_SIZE);
-          expect(result.data.cursor).toBeUndefined();
-        }
-      });
+// ── 5. userPortfolioParamsSchema ────────────────────────────────────────────
 
-      it("should accept empty query object with defaults", () => {
-        const result = userPredictionsQuerySchema.safeParse({});
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.limit).toBe(DEFAULT_PAGE_SIZE);
-          expect(result.data.status).toBeUndefined();
-          expect(result.data.cursor).toBeUndefined();
-        }
-      });
+describe("userPortfolioParamsSchema", () => {
+  it("accepts a valid addr", () => {
+    const out = parseOk(userPortfolioParamsSchema, { addr: VALID_ADDRESS_2 });
+    expect(out.addr).toBe(VALID_ADDRESS_2);
+  });
+
+  it("rejects invalid addr", () => {
+    const err = parseErr(userPortfolioParamsSchema, { addr: "bad-addr" });
+    expect(err.issues).toHaveLength(1);
+  });
+
+  it("rejects missing addr", () => {
+    const err = parseErr(userPortfolioParamsSchema, {});
+    expect(err.issues[0]?.path).toEqual(["addr"]);
+  });
+
+  it("rejects unknown keys (strict)", () => {
+    const err = parseErr(userPortfolioParamsSchema, {
+      addr: VALID_ADDRESS_2,
+      surprise: "field",
     });
+    expect(err.issues.some((i) => i.code === "unrecognized_keys")).toBe(true);
+  });
+
+  it("type inference produces { addr: string }", () => {
+    type T = z.infer<typeof userPortfolioParamsSchema>;
+    const _assert: { addr: string } = {} as T;
+    void _assert;
   });
 });

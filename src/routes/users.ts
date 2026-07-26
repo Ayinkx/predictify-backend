@@ -40,9 +40,9 @@ import { RouteErrorFactory } from "../errors";
 import { requestTimeout } from "../middleware/timeout";
 import { usersMetricsMiddleware } from "../metrics/usersMetrics";
 import {
-  stellarAddressParamsSchema,
-  stellarAddressProfileParamsSchema,
+  userPredictionsParamsSchema,
   userPredictionsQuerySchema,
+  userProfileParamsSchema,
 } from "../validators/users";
 
 export const usersRouter = Router();
@@ -126,8 +126,8 @@ usersRouter.get(
     const reqId = correlationId;
 
     try {
-      // Validate the Stellar address at the route boundary before touching the DB.
-      const paramsParse = stellarAddressParamsSchema.safeParse(req.params);
+      // Validate the path parameter :address at the route boundary before touching the DB.
+      const paramsParse = userPredictionsParamsSchema.safeParse(req.params);
       if (!paramsParse.success) {
         logger.warn(
           { correlationId, reqId, address: req.params.address, issues: paramsParse.error.issues },
@@ -141,8 +141,7 @@ usersRouter.get(
           },
         });
       }
-
-      const address = paramsParse.data.address;
+      const { address } = paramsParse.data;
 
       // Validate and coerce query parameters with zod.
       const queryParse = userPredictionsQuerySchema.safeParse(req.query);
@@ -205,7 +204,7 @@ usersRouter.get(
     const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
     const reqId = correlationId;
 
-    const parseResult = stellarAddressProfileParamsSchema.safeParse(req.params);
+    const parseResult = userProfileParamsSchema.safeParse(req.params);
     if (!parseResult.success) {
       logger.warn(
         {
@@ -224,7 +223,7 @@ usersRouter.get(
       );
     }
 
-    const stellarAddress = parseResult.data.stellarAddress;
+    const { stellarAddress } = parseResult.data;
 
     try {
       logger.debug({ correlationId, reqId, stellarAddress }, "user_profile_lookup");
