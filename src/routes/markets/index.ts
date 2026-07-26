@@ -24,6 +24,7 @@ import { predictionCountRouter } from "./prediction-count";
 import { watchersRouter } from "./watchers";
 import { marketAuditRouter } from "../marketAudit";
 import { disputesRouter } from "../disputes";
+import { requestTimeout } from "../../middleware/timeout";
 import {
   listMarketsQuerySchema,
   searchMarketsQuerySchema,
@@ -51,38 +52,7 @@ function trackMarketsMetrics(endpoint: string) {
 }
 
 marketsRouter.use(rateLimitAnon);
-
-// ── Per-user rate limiting for Bearer-token requests ────────────────────
-// jwt.decode extracts the `sub` claim without verifying the signature;
-// for rate-limiting purposes this is acceptable — the worst case is a
-// crafted token receives its own bucket, still capped at 60 req/min.
-const marketsPerUserLimiter = createPerUserRateLimiter({
-  windowMs: 60 * 1000,
-  limit: 60,
-  keyGenerator: (req) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.slice(7);
-      const decoded = jwt.decode(token);
-      if (decoded && typeof decoded === "object" && decoded.sub) {
-        return `markets:user:${decoded.sub}`;
-      }
-    }
-    return `markets:ip:${req.ip ?? "unknown"}`;
-  },
-});
-
-// Only engage the per-user limiter for requests carrying a Bearer token
-// (same heuristic used internally by rateLimitAnon to skip authenticated
-// requests).  Anonymous requests are already covered by rateLimitAnon above.
-marketsRouter.use((req, res, next) => {
-  const auth = req.headers.authorization;
-  if (typeof auth === "string" && auth.startsWith("Bearer ") && auth.length > 7) {
-    return marketsPerUserLimiter(req, res, next);
-  }
-  next();
-});
-
+marketsRouter.use(requestTimeout(10000));
 marketsRouter.use("/tags", tagsRouter);
 marketsRouter.use("/recommendations", recommendationsRouter);
 marketsRouter.use("/trending", trendingRouter);

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { logger } from "../config/logger";
 
 /**
  * Creates an Express middleware that enforces a maximum request duration.
@@ -30,7 +31,20 @@ export function requestTimeout(timeoutMs: number) {
       settled = true;
       abort();
       if (!res.headersSent) {
-        const correlationId = (res.locals.correlationId as string) || "unknown";
+        // Extract the correlation ID for structured logging and standard error envelope
+        const correlationId = (res.locals.correlationId as string) || (req as { id?: string }).id || "unknown";
+
+        logger.warn(
+          {
+            reqId: correlationId,
+            correlationId,
+            path: req.originalUrl,
+            method: req.method,
+            timeoutMs
+          },
+          "request_timeout_exceeded"
+        );
+
         res.status(408).json({
           error: {
             code: "timeout",

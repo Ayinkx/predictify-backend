@@ -415,3 +415,36 @@ describe("GET /api/markets/tags", () => {
     expect(res.body).toEqual({ data: [] });
   });
 });
+
+describe("GET /api/markets Timeout Validation", () => {
+  afterEach(() => {
+    setDbForTests(null);
+  });
+
+  it("returns 408 Request Timeout when the database query exceeds the timeout limit", async () => {
+    // Mock the database to simulate a delayed response
+    const mockDb = {
+      select: jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => ({
+            orderBy: jest.fn(() => ({
+              limit: jest.fn(() => new Promise((resolve) => setTimeout(resolve, 11000))),
+            })),
+          })),
+        })),
+      })),
+    } as unknown as Database;
+
+    setDbForTests(mockDb);
+
+    const res = await request(createApp()).get("/api/markets");
+    
+    expect(res.status).toBe(408);
+    expect(res.body).toMatchObject({
+      error: {
+        code: "timeout",
+        message: "Request timeout exceeded"
+      }
+    });
+  }, 15000); // Give the test block enough time to complete
+});
