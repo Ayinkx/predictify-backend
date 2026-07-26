@@ -14,6 +14,7 @@ import { rateLimitAnon } from "../../middleware/rateLimitAnon";
 import { accessLog } from "../../middleware/accessLog";
 import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
+import { accessLog } from "../../middleware/accessLog";
 import { RouteErrorFactory } from "../../errors";
 import { conditionalGet } from "../../middleware/etag";
 import { marketsRequestDuration, marketsRequestsTotal } from "../../metrics/registry";
@@ -36,21 +37,7 @@ import {
 
 export const marketsRouter = Router();
 
-function trackMarketsMetrics(endpoint: string) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const start = process.hrtime.bigint();
-
-    res.on("finish", () => {
-      const durationSec = Number(process.hrtime.bigint() - start) / 1e9;
-      const labels = { endpoint, method: req.method, status: res.statusCode };
-      marketsRequestDuration.observe(labels, durationSec);
-      marketsRequestsTotal.inc(labels);
-    });
-
-    next();
-  };
-}
-
+marketsRouter.use(accessLog);
 marketsRouter.use(rateLimitAnon);
 marketsRouter.use(requestTimeout(10000));
 marketsRouter.use("/tags", tagsRouter);

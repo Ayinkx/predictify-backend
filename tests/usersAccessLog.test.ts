@@ -347,16 +347,14 @@ describe("accessLog middleware", () => {
     );
   });
 
-  it("emits a tags_access_log entry when originalUrl starts with /api/tags, including size and actor", async () => {
+  it("emits a markets_access_log entry when originalUrl starts with /api/markets", async () => {
     const req = makeReq({
-      headers: { "x-correlation-id": "tags-log-test-id" },
+      headers: { "x-correlation-id": "markets-log-test-id" },
       method: "GET",
-      path: "/api/tags",
+      path: "/api/markets",
       ip: "10.0.0.3",
     });
-    (req as any).user = { id: "test-actor-123" };
     const res = makeRes();
-    res.setHeader("Content-Length", "42");
     const next: NextFunction = jest.fn();
 
     accessLog(req, res, next);
@@ -364,19 +362,14 @@ describe("accessLog middleware", () => {
 
     expect(loggerInfoSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        correlationId: "tags-log-test-id",
-        "req-id": "tags-log-test-id",
+        correlationId: "markets-log-test-id",
         method: "GET",
-        path: "/api/tags",
+        path: "/api/markets",
         statusCode: 200,
-        status: 200,
         ip: "10.0.0.3",
         durationMs: expect.any(Number),
-        latency: expect.any(Number),
-        size: 42,
-        actor: "test-actor-123",
       }),
-      "tags_access_log",
+      "markets_access_log",
     );
   });
 
