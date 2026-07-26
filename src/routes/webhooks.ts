@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
+import { webhookCors } from "../middleware/cors";
 import { requireAdmin } from "../middleware/requireAdmin";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
 
@@ -42,6 +43,9 @@ function serializeDelivery(row: WebhookDelivery) {
 export function createWebhooksRouter(deps: WebhooksRouterDeps): Router {
   const router = Router();
 
+  // Enforce CORS allowlist before admin auth so unapproved origins are
+  // rejected early without leaking auth challenge details.
+  router.use(webhookCors());
   router.use(requireAdmin);
 
   router.get("/", async (req, res, next) => {

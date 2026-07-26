@@ -44,6 +44,9 @@ const baseSchema = z.object({
   PG_POOL_MAX: z.coerce.number().int().positive().default(10),
   PG_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 
+  // ── Webhook CORS ─────────────────────────────────────────
+  WEBHOOK_CORS_ALLOWED_ORIGINS: z.string().default(""),
+
   // ── Geo-blocking ──────────────────────────────────────────
   GEO_BLOCKED_COUNTRIES: z.string().default("").transform((val) =>
     val.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean),
