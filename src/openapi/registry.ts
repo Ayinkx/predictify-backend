@@ -387,6 +387,60 @@ registry.registerPath({
   },
 });
 
+// ── GET /api/auth (cursor-paginated sessions) ───────────────────────────────
+
+const SessionSummary = z
+  .object({
+    id: z.string().uuid(),
+    familyId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    expiresAt: z.string().datetime(),
+  })
+  .openapi("SessionSummary");
+
+const AuthSessionsListResponse = z
+  .object({
+    data: z.array(SessionSummary),
+    nextCursor: z.string().nullable(),
+  })
+  .openapi("AuthSessionsListResponse");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/auth",
+  operationId: "listAuthSessions",
+  tags: ["Auth"],
+  summary: "List active sessions with cursor pagination",
+  description:
+    "Returns a cursor-paginated list of active refresh-token sessions for the " +
+    "authenticated user. Sessions are deduplicated by familyId so only the " +
+    "most recent token per refresh-token family is returned. " +
+    "Sort order is `createdAt DESC, id DESC`.",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated list of active sessions",
+      content: {
+        "application/json": { schema: AuthSessionsListResponse },
+      },
+    },
+    400: {
+      description: "Validation error",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
 // ── /api/markets ─────────────────────────────────────────────────────────────
 
 const Market = z
