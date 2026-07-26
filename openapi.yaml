@@ -635,6 +635,12 @@ components:
         - stellarAddress
         - createdAt
         - totals
+      example:
+        stellarAddress: "GCM3Z6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5"
+        createdAt: "2023-10-01T12:00:00Z"
+        totals:
+          prediction_count: 5
+          claim_count: 2
     Prediction:
       type: object
       properties:
@@ -690,6 +696,18 @@ components:
         - joinedAt
         - predictions
         - totals
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        stellarAddress: "GCM3Z6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5"
+        joinedAt: "2023-10-01T12:00:00Z"
+        predictions:
+          - id: "223e4567-e89b-12d3-a456-426614174001"
+            marketId: "market-123"
+            status: "won"
+            createdAt: "2023-10-02T12:00:00Z"
+        totals:
+          prediction_count: 1
+          claim_count: 0
     PredictionRow:
       type: object
       properties:
@@ -859,6 +877,33 @@ components:
         - claims
         - disputes
         - totals
+      example:
+        user:
+          id: "123e4567-e89b-12d3-a456-426614174000"
+          stellarAddress: "GCM3Z6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5L6Z4X6Z5"
+          createdAt: "2023-10-01T12:00:00Z"
+        predictions:
+          - id: "223e4567-e89b-12d3-a456-426614174001"
+            marketId: "market-123"
+            outcome: "Yes"
+            amount: "100.00"
+            createdAt: "2023-10-02T12:00:00Z"
+        claims:
+          - id: "333e4567-e89b-12d3-a456-426614174002"
+            marketId: "market-123"
+            amount: "150.00"
+            status: "processed"
+            createdAt: "2023-10-05T12:00:00Z"
+        disputes:
+          - id: "444e4567-e89b-12d3-a456-426614174003"
+            marketId: "market-123"
+            reason: "Invalid outcome"
+            status: "resolved"
+            createdAt: "2023-10-06T12:00:00Z"
+        totals:
+          predictions: 1
+          claims: 1
+          disputes: 1
     AuditEntry:
       type: object
       properties:
