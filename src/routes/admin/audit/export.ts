@@ -59,8 +59,9 @@ export function createAdminAuditExportRouter(
       const parseResult = exportQuerySchema.safeParse(req.query);
       if (!parseResult.success) {
         const reqId = getRequestId();
+        res.status(400);
         endAuditSpan(span, res);
-        res.status(400).json({
+        res.json({
           error: {
             code: "validation_error",
             message: parseResult.error.issues[0]?.message ?? "invalid query parameters",
@@ -174,8 +175,9 @@ export function createAdminAuditExportRouter(
           );
 
           if (!res.headersSent) {
+            res.status(500);
             endAuditSpan(span, res);
-            res.status(500).json({
+            res.json({
               error: {
                 code: "export_error",
                 message: "Failed to stream audit logs",

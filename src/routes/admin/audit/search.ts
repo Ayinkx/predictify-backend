@@ -35,8 +35,9 @@ export const searchAuditLogsHandler = async (
     const reqId = getRequestId() ?? (req as { id?: string }).id ?? "unknown";
 
     if (!parseResult.success) {
+      res.status(400);
       endAuditSpan(span, res);
-      res.status(400).json({
+      res.json({
         error: {
           code: "validation_error",
           message: parseResult.error.issues[0]?.message ?? "invalid payload parameters",

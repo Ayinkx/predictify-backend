@@ -1,12 +1,12 @@
 import { type Tracer } from "@opentelemetry/api";
-import { TracerProvider, SimpleSpanProcessor, ConsoleSpanExporter } from "@opentelemetry/sdk-trace";
+import { BasicTracerProvider, SimpleSpanProcessor, ConsoleSpanExporter } from "@opentelemetry/sdk-trace-base";
 
-const provider = new TracerProvider({
-  spanProcessors: [new SimpleSpanProcessor({ exporter: new ConsoleSpanExporter() })],
+const provider = new BasicTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(new ConsoleSpanExporter())],
 });
 
-const _tracer: Tracer = provider.getTracer("predictify-backend", "0.1.0");
+const tracerInstance: Tracer = provider.getTracer("predictify-backend", "0.1.0");
 
 export function getTracer(): Tracer {
-  return _tracer;
+  return tracerInstance;
 }
