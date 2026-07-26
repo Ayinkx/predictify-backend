@@ -734,4 +734,54 @@ describe("listPredictions — repository", () => {
       }),
     ).resolves.toMatchObject({ data: [], nextCursor: null });
   });
+
+  it("applies the marketId filter condition when provided", async () => {
+    const { selectMock } = stubDbQuery([]);
+    await realListPredictions(TEST_USER_ID, { limit: 20, marketId: MARKET_ID });
+    expect(selectMock).toHaveBeenCalled();
+  });
+
+  it("applies the status filter condition when provided", async () => {
+    stubDbQuery([]);
+    await expect(
+      realListPredictions(TEST_USER_ID, { limit: 20, status: "confirmed" }),
+    ).resolves.toMatchObject({ data: [], nextCursor: null });
+  });
+
+  it("applies the outcome filter condition when provided", async () => {
+    stubDbQuery([]);
+    await expect(
+      realListPredictions(TEST_USER_ID, { limit: 20, outcome: "yes" }),
+    ).resolves.toMatchObject({ data: [], nextCursor: null });
+  });
+
+  it("applies all filters (marketId, status, outcome) together", async () => {
+    stubDbQuery([makeDbRow(PREDICTION_ID_1)]);
+    const page = await realListPredictions(TEST_USER_ID, {
+      limit: 20,
+      marketId: MARKET_ID,
+      status: "pending",
+      outcome: "yes",
+    });
+    expect(page.data).toHaveLength(1);
+  });
+
+  it("applies the cursor keyset predicate when a valid cursor is provided", async () => {
+    const { encodeCursor } = jest.requireActual(
+      "../src/utils/cursor",
+    ) as typeof import("../src/utils/cursor");
+    const validCursor = encodeCursor({
+      sortValue: new Date(SORT_TS).toISOString(),
+      id: PREDICTION_ID_2,
+    });
+    stubDbQuery([makeDbRow(PREDICTION_ID_1)]);
+
+    const page = await realListPredictions(TEST_USER_ID, {
+      limit: 20,
+      cursor: validCursor,
+    });
+
+    expect(page.data).toHaveLength(1);
+    expect(page.data[0].id).toBe(PREDICTION_ID_1);
+  });
 });
