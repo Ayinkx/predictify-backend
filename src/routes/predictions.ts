@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { accessLog } from "../middleware/accessLog";
 import { requireAuth } from "../middleware/requireAuth";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { accessLog } from "../middleware/accessLog";

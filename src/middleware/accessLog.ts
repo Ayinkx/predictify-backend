@@ -121,17 +121,28 @@ export function accessLog(req: Request, res: Response, next: NextFunction): void
       logName = "auth_access_log";
     } else if (req.originalUrl.startsWith("/api/predictions")) {
       logName = "predictions_access_log";
+    } else if (req.originalUrl.startsWith("/api/tags")) {
+      logName = "tags_access_log";
     }
 
     const durationMs = Date.now() - startMs;
+    const contentLength = res.getHeader("Content-Length") as string | undefined;
+    const size = contentLength ? parseInt(contentLength, 10) : 0;
+    const actor = (req as Request & { user?: { id: string } }).user?.id ?? "anonymous";
+
     logger.info(
       {
+        "req-id": correlationId, // Alias for /api/tags requirement
         correlationId,
         method: req.method,
         path: req.path,
         statusCode: res.statusCode,
+        status: res.statusCode, // Alias for /api/tags requirement
         durationMs,
+        latency: durationMs, // Alias for /api/tags requirement
         ip,
+        size,
+        actor,
       },
       logName,
     );
