@@ -1095,6 +1095,61 @@ const FollowResult = z
 
 registry.registerPath({
   method: "get",
+  path: "/api/users",
+  operationId: "listUsers",
+  tags: ["Users"],
+  summary: "List all users (cursor-paginated)",
+  description:
+    "Returns a cursor-paginated list of registered users sorted newest-first " +
+    "(DESC createdAt, DESC id).  Pass the opaque `nextCursor` value from one " +
+    "response as the `cursor` query parameter of the next request to advance " +
+    "through pages.  A null `nextCursor` indicates the last page.",
+  request: {
+    query: z.object({
+      cursor: z.string().optional().openapi({
+        description: "Opaque cursor token from the previous page's nextCursor field.",
+        example: "djF8MjZ8MjAyNi0wMS0wMVQwMDowMDowMC4wMDBafGFiY2Qtd...",
+      }),
+      limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(20)
+        .openapi({ description: "Page size (1–100, default 20)." }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated list of users",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(
+              z
+                .object({
+                  id: z.string().uuid(),
+                  stellarAddress: z.string(),
+                  createdAt: z.string().datetime(),
+                })
+                .openapi("UserListRow"),
+            ),
+            nextCursor: z.string().nullable().openapi({
+              description: "Cursor for the next page, or null on the last page.",
+            }),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Validation error",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
   path: "/api/users/me",
   operationId: "getCurrentUser",
   tags: ["Users"],
