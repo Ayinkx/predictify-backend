@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import { getAuditLogs } from "../../repositories/auditLogRepo";
 import { RouteErrorFactory } from "../../errors";
+import { startAuditSpan, endAuditSpan, recordErrorOnSpan } from "../../otel/spans";
 import { searchAuditLogsHandler } from "./audit/search";
 
 export interface AdminAuditRouterOptions {
@@ -50,6 +51,7 @@ export function createAdminAuditRouter(opts: AdminAuditRouterOptions = {}): Rout
   router.post("/search", searchAuditLogsHandler);
 
   router.get("/", async (req, res, next) => {
+    const span = startAuditSpan("audit.admin.list", req, res);
     try {
       const parseResult = auditQuerySchema.safeParse(req.query);
       if (!parseResult.success) {
@@ -61,11 +63,13 @@ export function createAdminAuditRouter(opts: AdminAuditRouterOptions = {}): Rout
       const filters = parseResult.data;
       const page = await getAuditLogs(filters);
 
+      endAuditSpan(span, res);
       res.json({
         data: page.data,
         nextCursor: page.nextCursor,
       });
     } catch (e) {
+      recordErrorOnSpan(span, e);
       next(e);
     }
   });
