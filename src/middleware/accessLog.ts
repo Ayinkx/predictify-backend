@@ -123,6 +123,8 @@ export function accessLog(req: Request, res: Response, next: NextFunction): void
       logName = "predictions_access_log";
     } else if (req.originalUrl.startsWith("/api/tags")) {
       logName = "tags_access_log";
+    } else if (req.originalUrl.startsWith("/api/audit")) {
+      logName = "audit_access_log";
     }
 
     const durationMs = Date.now() - startMs;
