@@ -32,6 +32,7 @@ import { socialRouter } from "./routes/social";
 import { createWebhooksRouter } from "./routes/webhooks";
 import { adminAuditRouter } from "./routes/admin/audit";
 import { adminAuditExportRouter } from "./routes/admin/audit/export";
+import { auditCountsRouter } from "./routes/audit/counts";
 import { adminMarketsRouter } from "./routes/admin/markets";
 import { adminSchemaVersionsRouter } from "./routes/admin/schema-versions";
 import { errorHandler } from "./middleware/errorHandler";
@@ -151,6 +152,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/admin/audit", adminAuditRouter);
   app.use("/api/admin/audit", adminAuditExportRouter);
+  app.use("/api/audit/counts", auditCountsRouter);
   app.use("/api/admin/users", adminUsersRouter);
   app.use("/api/admin/users", adminNotesRouter);
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
