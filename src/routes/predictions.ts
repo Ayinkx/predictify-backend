@@ -119,6 +119,9 @@ predictionsRouter.get(
         cursor,
       });
 
+      const payload = { data: page.data, nextCursor: page.nextCursor };
+      if (conditionalGet(payload, req, res)) return;
+
       logger.info(
         {
           reqId,
@@ -129,7 +132,7 @@ predictionsRouter.get(
         "predictions_list_served",
       );
 
-      res.json({ data: page.data, nextCursor: page.nextCursor });
+      res.json(payload);
     } catch (err) {
       next(err);
     }
@@ -145,6 +148,7 @@ predictionsRouter.get("/:id/explain", async (req, res, next) => {
   try {
     const { id } = req.params;
     const explanation = await getPredictionExplanation(id);
+    if (conditionalGet(explanation, req, res)) return;
     res.json(explanation);
   } catch (error) {
     next(error);
