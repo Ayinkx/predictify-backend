@@ -29,7 +29,9 @@ import { createDocsRouter } from "./routes/docs";
 import { sessionsRouter } from "./routes/me/sessions";
 import { notificationsRouter } from "./routes/notifications";
 import { socialRouter } from "./routes/social";
-import { webhooksRouter } from "./routes/webhooks";
+import { createWebhooksRouter } from "./routes/webhooks";
+import type { WebhookStore } from "./services/webhookStore";
+import type { IWebhookDispatcher } from "./services/webhookDispatcher";
 import { adminAuditRouter } from "./routes/admin/audit";
 import { adminAuditExportRouter } from "./routes/admin/audit/export";
 import { adminMarketsRouter } from "./routes/admin/markets";
@@ -135,7 +137,9 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use("/api/rate-limit", rateLimitStatusRouter);
   app.use("/api/quota/requests", quotaRequestsRouter);
   app.use("/api/notifications", notificationsRouter);
-  app.use("/api/webhooks", webhooksRouter);
+  if (_options.webhooks) {
+    app.use("/api/webhooks", createWebhooksRouter({ store: _options.webhooks.store }));
+  }
   app.use("/api/users/health", usersHealthRouter);
   app.use("/api/users", socialRouter);
   app.use("/api/users", userPortfolioRouter);

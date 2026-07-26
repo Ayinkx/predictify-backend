@@ -1,24 +1,13 @@
 import { Router } from "express";
-import { z } from "zod";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { requireAdmin } from "../middleware/requireAdmin";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
+import { listWebhooksQuerySchema } from "../validators/webhooks";
 
 export interface WebhooksRouterDeps {
   store: WebhookStore;
 }
-
-const webhooksQuerySchema = z.object({
-  cursor: z
-    .string()
-    .min(1, { message: "cursor must not be empty when provided" })
-    .optional(),
-  limit: z
-    .string()
-    .regex(/^\d+$/, { message: "limit must be a positive integer" })
-    .optional(),
-});
 
 function serializeDelivery(row: WebhookDelivery) {
   return {
@@ -48,7 +37,7 @@ export function createWebhooksRouter(deps: WebhooksRouterDeps): Router {
     const requestId = getRequestId();
 
     try {
-      const parseResult = webhooksQuerySchema.safeParse(req.query);
+      const parseResult = listWebhooksQuerySchema.safeParse(req.query);
       if (!parseResult.success) {
         const issue = parseResult.error.issues[0];
         logger.warn(
