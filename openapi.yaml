@@ -2614,6 +2614,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                unauthorized:
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      requestId: req_xyz789
   /api/users/{address}/predictions:
     get:
       operationId: getUserPredictions
@@ -2678,12 +2684,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                invalidAddress:
+                  value:
+                    error:
+                      code: invalid_address
+                      requestId: req_abc123
         '404':
           description: User not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                notFound:
+                  value:
+                    error:
+                      code: not_found
+                      requestId: req_abc123
   /api/users/{stellarAddress}/profile:
     get:
       operationId: getUserProfile
@@ -2729,12 +2747,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                invalidAddress:
+                  value:
+                    error:
+                      code: validation_error
+                      requestId: req_xyz789
         '404':
           description: User not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                notFound:
+                  value:
+                    error:
+                      code: not_found
+                      requestId: req_xyz789
   /api/predictions:
     get:
       operationId: listPredictions
@@ -2866,12 +2896,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorBody'
+              examples:
+                validationError:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      details: Invalid stellar address
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                unauthorized:
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      requestId: req_xyz789
     delete:
       operationId: unfollowUser
       tags:
@@ -2910,12 +2952,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorBody'
+              examples:
+                validationError:
+                  value:
+                    error:
+                      code: VALIDATION_ERROR
+                      details: Invalid stellar address
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+              examples:
+                unauthorized:
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      requestId: req_xyz789
   /api/admin/users/{address}:
     get:
       operationId: getAdminUser
