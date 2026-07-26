@@ -49,8 +49,8 @@ import { backupVerificationWorker } from "./workers/backupVerificationWorker";
 import { reconciliationWorker } from "./workers/reconciliationWorker";
 import { rateLimitStatusRouter } from "./routes/rate-limit/status";
 import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
-import { webhooksRouter } from "./routes/webhooks";
-import { startSlowQueryAlerter, stopSlowQueryAlerter } from "./workers/slowQueryAlerter";
+import { quotaRequestsRouter } from "./routes/quota/requests";
+import { adminCircuitBreakerRouter } from "./routes/admin/circuit-breaker";
 import { scheduledReportsRouter } from "./routes/reports/scheduled";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
@@ -152,8 +152,9 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
-  app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
-  app.use("/api/reports/scheduled", scheduledReportsRouter);
+app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
+app.use("/api/admin/circuit-breaker", adminCircuitBreakerRouter);
+app.use("/api/reports/scheduled", scheduledReportsRouter);
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;
