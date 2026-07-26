@@ -30,12 +30,8 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
-import {
-  getUserByAddress,
-  getUserPredictions,
-  getCurrentUserProfile,
-  getUserProfile,
-} from "../services/userService";
+import { z } from "zod";
+import { getUserByAddress, getUserPredictions, getCurrentUserProfile, getUserProfile, listUsers } from "../services/userService";
 import { requireAuthForbidden } from "../middleware/requireAuth";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { accessLog } from "../middleware/accessLog";
@@ -101,6 +97,69 @@ usersRouter.get(
   async (req: AuthenticatedRequest, res, next) => {
   const correlationId = res.locals.correlationId as string;
 
+/**
+ * GET /api/users
+ *
+ * Returns a cursor-paginated list of all registered users, sorted newest-first
+ * (DESC createdAt, DESC id).  The composite sort key `(createdAt, id)` is
+ * stable: even when two users are created in the same millisecond the UUID
+ * tie-breaker is unique, so pages never overlap or skip rows.
+ *
+ * Query parameters:
+ *   - cursor  (optional) — opaque base64url token from the previous page's `nextCursor`
+ *   - limit   (optional, default 20, max 100) — page size
+ *
+ * Response:
+ *   { data: UserListRow[], nextCursor: string | null }
+ *
+ * Pagination:
+ *   `nextCursor` is null on the last page.  Pass it verbatim as `?cursor=` to
+ *   fetch the next page.  A missing, tampered, or version-mismatched cursor is
+ *   silently treated as absent (restart from page one) rather than 500-ing.
+ *
+ * Errors:
+ *   400 validation_error — query params fail the zod schema
+ */
+usersRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
+  const reqId = getRequestId();
+
+  try {
+    const querySchema = z.object({
+      cursor: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_PAGE_SIZE),
+    });
+
+    const queryParse = querySchema.safeParse(req.query);
+    if (!queryParse.success) {
+      logger.warn({ reqId, issues: queryParse.error.issues }, "users_list_invalid_query");
+      return res.status(400).json({
+        error: {
+          code: "validation_error",
+          message: queryParse.error.issues[0]?.message ?? "invalid query parameters",
+          requestId: reqId,
+        },
+      });
+    }
+
+    const { cursor, limit: rawLimit } = queryParse.data;
+    const limit = clampLimit(rawLimit);
+
+    logger.debug({ reqId, limit, hasCursor: !!cursor }, "users_list_request");
+
+    const page = await listUsers({ cursor, limit });
+
+    logger.info(
+      { reqId, count: page.data.length, hasNext: !!page.nextCursor },
+      "users_list_served",
+    );
+
+    return res.json({ data: page.data, nextCursor: page.nextCursor });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, res, next) => {
   try {
     const userId = req.user!.id;
     const result = await getCurrentUserProfile(userId);
