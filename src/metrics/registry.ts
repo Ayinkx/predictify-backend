@@ -1,4 +1,10 @@
-import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from "prom-client";
+import {
+  Registry,
+  Counter,
+  Histogram,
+  Gauge,
+  collectDefaultMetrics,
+} from "prom-client";
 
 export const register = new Registry();
 
@@ -9,6 +15,14 @@ export const httpRequestDuration = new Histogram({
   help: "Duration of HTTP requests in seconds, segmented by route template and status code",
   labelNames: ["route", "status"] as const,
   buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
+  registers: [register],
+});
+
+export const webhookRequestDuration = new Histogram({
+  name: "webhook_request_duration_seconds",
+  help: "Latency of /api/webhooks requests in seconds",
+  labelNames: ["route"] as const,
+  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10], // Explicit buckets for latency tracking
   registers: [register],
 });
 

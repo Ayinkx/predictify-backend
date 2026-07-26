@@ -32,6 +32,9 @@ import { webhooksRateLimiter } from "../middleware/rateLimit";
 import { RouteErrorFactory } from "../errors";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
+import { requireAdmin } from "../middleware/requireAdmin";
+import { webhookRequestDuration } from "../metrics/registry";
+import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
 
 // ---------------------------------------------------------------------------
 // Zod schemas — boundary validation
@@ -87,11 +90,16 @@ function serializeSub(row: SubscriptionRow) {
 
 export const webhooksRouter = Router();
 
-// ┌─ Per-user rate limit first (keys on stellarAddress/user.id/IP fallback ─┐
-// │  requireAuth second: populates req.user → limiter keys on user identity           │
-// └───────────────────────────────────────────────────────────────────────┘
-webhooksRouter.use(webhooksRateLimiter);
-webhooksRouter.use(requireAuth);
+  router.get("/", async (req, res, next) => {
+    const endTimer = webhookRequestDuration.startTimer({
+      route: "/api/webhooks",
+    });
+
+    res.on("finish", () => {
+      endTimer();
+    });
+
+    const requestId = getRequestId();
 
 // ── List ──────────────────────────────────────────────────────────────────
 
