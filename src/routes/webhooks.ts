@@ -24,6 +24,7 @@
 import { Router } from "express";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
+import { webhookCors } from "../middleware/cors";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { webhooksMetricsMiddleware } from "../metrics/webhooksMetrics";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
@@ -48,7 +49,9 @@ function serializeDelivery(row: WebhookDelivery) {
 // Router
 // ---------------------------------------------------------------------------
 
-  router.use(webhooksMetricsMiddleware);
+  // Enforce CORS allowlist before admin auth so unapproved origins are
+  // rejected early without leaking auth challenge details.
+  router.use(webhookCors());
   router.use(requireAdmin);
 
   router.get("/", async (req, res, next) => {
