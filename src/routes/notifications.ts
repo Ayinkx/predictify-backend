@@ -12,6 +12,7 @@ import {
   patchNotificationPreferences,
 } from "../services/notificationPrefs";
 import { markNotificationsAsRead } from "../services/notificationService";
+import { idempotency } from "../middleware/idempotency";
 
 const notificationCategorySchema = z.enum(notificationCategories);
 const notificationChannelSchema = z.enum(notificationChannels);
@@ -80,6 +81,7 @@ notificationsRouter.get(
 
 notificationsRouter.patch(
   "/preferences",
+  idempotency,
   async (req, res, next) => {
     const parsed = patchPreferencesBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -122,6 +124,7 @@ notificationsRouter.patch(
 
 notificationsRouter.post(
   "/mark-read",
+  idempotency,
   async (req: Request, res: Response, next: NextFunction) => {
     const parsed = markReadBodySchema.safeParse(req.body);
     if (!parsed.success) {
