@@ -10,9 +10,12 @@
  *   - PATCH  /api/reports/scheduled/:id    — Update a scheduled report
  *   - DELETE /api/reports/scheduled/:id    — Delete a scheduled report
  *
- * All endpoints require authentication via JWT Bearer token. Ownership is
- * enforced on all read, update, and delete operations — a user can only
- * access their own scheduled reports.
+ * All endpoints require authentication via JWT Bearer token (enforced by the
+ * parent reports router). Ownership is enforced on all read, update, and
+ * delete operations — a user can only access their own scheduled reports.
+ *
+ * Rate limiting is applied at the parent /api/reports level via a per-user
+ * token bucket. See src/routes/reports.ts.
  *
  * Input validation is performed at the route boundary using Zod schemas.
  * Structured logging with correlation IDs is emitted on all operations.
@@ -24,35 +27,10 @@ import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { db } from "../../db";
 import { scheduledReports } from "../../db/schema";
-import { requireAuth } from "../../middleware/requireAuth";
-import { createPerUserTokenBucketLimiter } from "../../middleware/rateLimit";
 import { RouteErrorFactory } from "../../errors";
 import { logger } from "../../config/logger";
 import { getRequestId } from "../../lib/requestContext";
 import type { Request } from "express";
-
-export interface ScheduledReportsRouterOptions {
-  rateLimit?: {
-    capacity?: number;
-    refillWindowMs?: number;
-  };
-}
-
-function getScheduledReportsRateLimitKey(req: Request): string {
-  const requestWithUser = req as Request & {
-    user?: { id?: string; address?: string; sub?: string };
-  };
-  const identity =
-    requestWithUser.user?.id ??
-    requestWithUser.user?.address ??
-    requestWithUser.user?.sub;
-
-  if (typeof identity === "string" && identity.trim().length > 0) {
-    return `reports:${identity.trim()}`;
-  }
-
-  return `ip:${req.socket?.remoteAddress ?? "unknown"}`;
-}
 
 function getScheduledReportsUserId(req: Request): string {
   const requestWithUser = req as Request & {
@@ -67,20 +45,8 @@ function getScheduledReportsUserId(req: Request): string {
   throw RouteErrorFactory.unauthorized("Authentication required");
 }
 
-export function createScheduledReportsRouter(
-  options: ScheduledReportsRouterOptions = {},
-): Router {
+export function createScheduledReportsRouter(): Router {
   const router = Router();
-
-  // Apply authentication and per-user throttling to all routes.
-  router.use(requireAuth);
-  router.use(
-    createPerUserTokenBucketLimiter({
-      capacity: options.rateLimit?.capacity ?? 60,
-      refillWindowMs: options.rateLimit?.refillWindowMs ?? 60 * 1000,
-      keyGenerator: getScheduledReportsRateLimitKey,
-    }),
-  );
 
 // ---------------------------------------------------------------------------
 // Validation Schemas
