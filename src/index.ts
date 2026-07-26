@@ -51,9 +51,7 @@ import { adminRateLimitInspectRouter } from "./routes/admin/rate-limit/inspect";
 import { quotaRequestsRouter } from "./routes/quota/requests";
 import { adminCircuitBreakerRouter } from "./routes/admin/circuit-breaker";
 import { scheduledReportsRouter } from "./routes/reports/scheduled";
-import { DrizzleWebhookStore } from "./services/drizzleWebhookStore";
-import type { WebhookStore } from "./services/webhookStore";
-import type { IWebhookDispatcher } from "./services/webhookDispatcher";
+import { statsRouter } from "./routes/stats";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
 
@@ -158,9 +156,9 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
-app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
-app.use("/api/admin/circuit-breaker", adminCircuitBreakerRouter);
-app.use("/api/reports/scheduled", scheduledReportsRouter);
+  app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
+  app.use("/api/reports/scheduled", scheduledReportsRouter);
+  app.use("/api/stats", statsRouter);
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;
