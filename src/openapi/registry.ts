@@ -1832,6 +1832,63 @@ registry.registerPath({
   },
 });
 
+// ── /api/audit/counts ───────────────────────────────────────────────────────
+
+const AuditActionCount = z
+  .object({
+    action: z.string(),
+    count: z.number().int(),
+  })
+  .openapi("AuditActionCount");
+
+const AuditCountsSummary = z
+  .object({
+    totalCount: z.number().int(),
+    byAction: z.array(AuditActionCount),
+  })
+  .openapi("AuditCountsSummary");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/audit/counts",
+  operationId: "getAuditCounts",
+  tags: ["Admin"],
+  summary: "Per-action audit log counts summary for dashboards (admin only)",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      startDate: z.string().datetime().optional(),
+      endDate: z.string().datetime().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Audit log counts summary",
+      content: {
+        "application/json": {
+          schema: z.object({ data: AuditCountsSummary }),
+        },
+      },
+    },
+    400: {
+      description: "Invalid query parameters",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
 // ── /api/admin/plugins ─────────────────────────────────────────────────────
 
 const PluginView = z

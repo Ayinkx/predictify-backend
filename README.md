@@ -36,6 +36,7 @@ Once running:
 - **Swagger UI** → http://localhost:3001/docs *(non-production only; set `ENABLE_DOCS=true` to enable in production)*
 - **OpenAPI JSON** → http://localhost:3001/openapi.json *(always available)*
 - **Audit export** → `GET /api/admin/audit/export` streams admin audit logs as `application/x-ndjson`
+- **Audit counts** → `GET /api/audit/counts` returns a per-action counts summary of audit log entries for admin dashboards
 
 
 ## Health Endpoints
