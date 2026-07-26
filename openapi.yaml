@@ -2710,11 +2710,36 @@ paths:
       tags:
         - Users
       summary: Get the authenticated user’s profile
+      description: >-
+        Returns the authenticated user’s own profile.
+
+        Conditional GET / ETag support: Every 200 response carries a strong
+        ETag header (SHA-256 of the JSON payload) and Cache-Control: no-cache.
+        Send the ETag back as If-None-Match on subsequent requests; if the
+        profile is unchanged the server responds 304 Not Modified (no body).
       security:
         - bearerAuth: []
+      parameters:
+        - name: If-None-Match
+          in: header
+          required: false
+          description: ETag from a previous 200 response. Triggers 304 when content is unchanged.
+          schema:
+            type: string
       responses:
         '200':
           description: Current user profile
+          headers:
+            ETag:
+              description: Strong ETag (SHA-256) of the response payload.
+              schema:
+                type: string
+                example: '"a3f2c1d4e5b6..."'
+            Cache-Control:
+              description: Always no-cache; must revalidate before using a cached copy.
+              schema:
+                type: string
+                example: no-cache
           content:
             application/json:
               schema:
@@ -2733,6 +2758,8 @@ paths:
                       totals:
                         prediction_count: 2
                         claim_count: 0
+        '304':
+          description: Not Modified — profile unchanged since the ETag in If-None-Match.
         '401':
           description: Unauthorized
           content:
@@ -2776,9 +2803,26 @@ paths:
           required: false
           name: limit
           in: query
+        - name: If-None-Match
+          in: header
+          required: false
+          description: ETag from a previous 200 response. Triggers 304 when the page is unchanged.
+          schema:
+            type: string
       responses:
         '200':
           description: Paginated predictions
+          headers:
+            ETag:
+              description: Strong ETag (SHA-256) of the response payload.
+              schema:
+                type: string
+                example: '"b4e6f8a1c2d3..."'
+            Cache-Control:
+              description: Always no-cache; must revalidate before using a cached copy.
+              schema:
+                type: string
+                example: no-cache
           content:
             application/json:
               schema:
@@ -2803,6 +2847,8 @@ paths:
                         status: confirmed
                         createdAt: '2026-06-27T12:00:00.000Z'
                     nextCursor: djF8MjR8...
+        '304':
+          description: Not Modified — predictions page unchanged since the ETag in If-None-Match.
         '400':
           description: Invalid address
           content:
@@ -2839,9 +2885,26 @@ paths:
           required: true
           name: stellarAddress
           in: path
+        - name: If-None-Match
+          in: header
+          required: false
+          description: ETag from a previous 200 response. Triggers 304 when the profile is unchanged.
+          schema:
+            type: string
       responses:
         '200':
           description: User profile
+          headers:
+            ETag:
+              description: Strong ETag (SHA-256) of the response payload.
+              schema:
+                type: string
+                example: '"c5d7e9b2a4f1..."'
+            Cache-Control:
+              description: Always no-cache; must revalidate before using a cached copy.
+              schema:
+                type: string
+                example: no-cache
           content:
             application/json:
               schema:
@@ -2866,6 +2929,8 @@ paths:
                       totals:
                         prediction_count: 1
                         claim_count: 1
+        '304':
+          description: Not Modified — profile unchanged since the ETag in If-None-Match.
         '400':
           description: Invalid Stellar address
           content:
