@@ -11,6 +11,7 @@ import { requireAdmin, AuthenticatedRequest } from "../../middleware/auth";
 import { rateLimitAnon } from "../../middleware/rateLimitAnon";
 import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
+import { accessLog } from "../../middleware/accessLog";
 import { RouteErrorFactory } from "../../errors";
 import { conditionalGet } from "../../middleware/etag";
 import { recommendationsRouter } from "./recommendations";
@@ -30,6 +31,7 @@ import {
 
 export const marketsRouter = Router();
 
+marketsRouter.use(accessLog);
 marketsRouter.use(rateLimitAnon);
 marketsRouter.use("/tags", tagsRouter);
 marketsRouter.use("/recommendations", recommendationsRouter);
