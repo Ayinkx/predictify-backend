@@ -11,6 +11,7 @@ import { searchMarkets } from "../../repositories/marketRepository";
 import { requireAdmin, AuthenticatedRequest } from "../../middleware/auth";
 import { createPerUserRateLimiter } from "../../middleware/rateLimit";
 import { rateLimitAnon } from "../../middleware/rateLimitAnon";
+import { accessLog } from "../../middleware/accessLog";
 import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
 import { RouteErrorFactory } from "../../errors";
@@ -32,8 +33,7 @@ import {
 
 export const marketsRouter = Router();
 
-// ── Anonymous sliding-window rate limiter (per IP) ──────────────────────
-// Authenticated requests are detected by Bearer token presence and skipped.
+marketsRouter.use(accessLog);
 marketsRouter.use(rateLimitAnon);
 
 // ── Per-user rate limiting for Bearer-token requests ────────────────────

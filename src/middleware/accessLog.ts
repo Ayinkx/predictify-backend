@@ -95,7 +95,7 @@ function resolveIp(req: Request): string {
  * Express middleware — structured access logger with correlation IDs.
  *
  * Stamps `res.locals.correlationId` and hooks `res.on("finish")` to emit
- * a `users_access_log` or `auth_access_log` log entry once the response has been flushed.
+ * a `users_access_log`, `auth_access_log`, or `markets_access_log` log entry once the response has been flushed.
  * Always calls `next()` so it is safe to mount as the first middleware on
  * any router without affecting the handler chain.
  */
