@@ -273,6 +273,45 @@ components:
           type: integer
         fallback:
           type: boolean
+      required:
+        - data
+        - total
+    MarketWatcher:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        marketId:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        stellarAddress:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - marketId
+        - userId
+        - createdAt
+    MarketWatchersResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketWatcher'
+        nextCursor:
+          type: string
+          nullable: true
+        total:
+          type: integer
+      required:
+        - data
         pagination:
           type: object
           properties:
@@ -1934,6 +1973,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+  /api/markets/{id}/watchers:
+    get:
+      operationId: getMarketWatchers
+      tags:
+        - Markets
+      summary: List subscribers/watchers of a market
+      description: >-
+        Returns a paginated list of users watching/subscribed to the specified market.
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: cursor
+          in: query
+      responses:
+        '200':
+          description: Watchers list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketWatchersResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '404':
+          description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    post:
+      operationId: addMarketWatcher
+      tags:
+        - Markets
+      summary: Subscribe to market watchers
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '201':
+          description: Successfully watching market
+        '401':
+          description: Unauthorized
+        '404':
+          description: Market not found
+    delete:
+      operationId: removeMarketWatcher
+      tags:
+        - Markets
+      summary: Unsubscribe from market watchers
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Successfully unwatched market
+        '401':
+          description: Unauthorized
+        '404':
+          description: Market not found
   /api/leaderboard:
     get:
       operationId: getLeaderboard

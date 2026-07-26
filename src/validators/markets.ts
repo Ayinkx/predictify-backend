@@ -72,3 +72,14 @@ export const patchMarketBodySchema = z
   .strict();
 
 export type PatchMarketBody = z.infer<typeof patchMarketBodySchema>;
+
+/**
+ * Schema for GET /api/markets/:id/watchers query parameters
+ */
+export const marketWatchersQuerySchema = z.object({
+  limit: z.coerce.number().int("Limit must be an integer").min(1, "Limit must be between 1 and 100").max(100, "Limit must be between 1 and 100").default(20),
+  cursor: z.string().optional(),
+});
+
+export type MarketWatchersQuery = z.infer<typeof marketWatchersQuerySchema>;
+
