@@ -2187,6 +2187,67 @@ registry.registerPath({
   },
 });
 
+// ── /api/stats ───────────────────────────────────────────────────────────────
+
+const MarketBreakdown = z
+  .object({
+    total: z.number().int(),
+    active: z.number().int(),
+    resolved: z.number().int(),
+  })
+  .openapi("MarketBreakdown");
+
+const GlobalStats = z
+  .object({
+    users: z.number().int(),
+    markets: MarketBreakdown,
+    predictions: z.number().int(),
+    claims: z.number().int(),
+  })
+  .openapi("GlobalStats");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/stats",
+  operationId: "getGlobalStats",
+  tags: ["Stats"],
+  summary: "Get global platform statistics",
+  description:
+    "Returns aggregate platform-level statistics including total users, markets " +
+    "(total / active / resolved), predictions, and claims. " +
+    "Responses include a strong ETag and Cache-Control: no-cache header for " +
+    "efficient conditional GET (304 Not Modified) support.\n" +
+    "\n" +
+    "**Caching**: Responses include a strong `ETag` (SHA-256 of the JSON body) and " +
+    "`Cache-Control: no-cache`. Clients should store the ETag and send it back as " +
+    "`If-None-Match` on subsequent requests. A matching ETag returns 304 with no body.",
+  responses: {
+    200: {
+      description: "Global platform statistics",
+      content: {
+        "application/json": {
+          schema: z.object({ data: GlobalStats }),
+          examples: {
+            default: {
+              value: {
+                data: {
+                  users: 1234,
+                  markets: { total: 56, active: 34, resolved: 22 },
+                  predictions: 9876,
+                  claims: 432,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    304: {
+      description: "Not Modified — client already has the latest stats (ETag match)",
+    },
+  },
+});
+
 // ── /api/quota/requests ──────────────────────────────────────────────────
 
 const QuotaType = z.enum(["prediction_limit", "daily_prediction_limit", "claim_limit"]).openapi("QuotaType");
