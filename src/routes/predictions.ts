@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { accessLog } from "../middleware/accessLog";
 import { requireAuth } from "../middleware/requireAuth";
+import { accessLog } from "../middleware/accessLog";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { accessLog } from "../middleware/accessLog";
 import { getPredictionExplanation } from "../services/predictionExplainService";

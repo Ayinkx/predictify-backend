@@ -22,58 +22,18 @@
  */
 
 import { Router } from "express";
-import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
-import { eq } from "drizzle-orm";
-import { db } from "../db";
-import { webhookSubscriptions } from "../db/schema";
-import { requireAuth } from "../middleware/requireAuth";
-import { webhooksRateLimiter } from "../middleware/rateLimit";
-import { RouteErrorFactory } from "../errors";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { webhookRequestDuration } from "../metrics/registry";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
+import { listWebhooksQuerySchema } from "../validators/webhooks";
 
 // ---------------------------------------------------------------------------
 // Zod schemas — boundary validation
 // ---------------------------------------------------------------------------
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const idParamSchema = z.string().regex(UUID_RE, "Invalid subscription ID");
-
-const EVENTS = [
-  "prediction.created",
-  "prediction.resolved",
-  "market.created",
-  "market.resolved",
-  "dispute.opened",
-  "dispute.resolved",
-] as const;
-
-const createSchema = z.object({
-  url: z.string().url("Subscription URL must be a valid HTTPS URL"),
-  events: z
-    .array(z.enum(EVENTS))
-    .min(1, "At least one event type must be selected"),
-});
-
-const updateSchema = z.object({
-  url: z.string().url().optional(),
-  events: z.array(z.enum(EVENTS)).min(1).optional(),
-  active: z.boolean().optional(),
-});
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-type SubscriptionRow = typeof webhookSubscriptions.$inferSelect;
-
-function serializeSub(row: SubscriptionRow) {
+function serializeDelivery(row: WebhookDelivery) {
   return {
     id: row.id,
     url: row.url,
@@ -101,7 +61,28 @@ export const webhooksRouter = Router();
 
     const requestId = getRequestId();
 
-// ── List ──────────────────────────────────────────────────────────────────
+    try {
+      const parseResult = listWebhooksQuerySchema.safeParse(req.query);
+      if (!parseResult.success) {
+        const issue = parseResult.error.issues[0];
+        logger.warn(
+          {
+            event: "webhooks_list_validation_failed",
+            requestId,
+            adminAddress: req.adminAddress,
+            issues: parseResult.error.issues,
+          },
+          "Webhook list: invalid query parameters",
+        );
+        res.status(400).json({
+          error: {
+            code: "validation_error",
+            message: issue?.message ?? "invalid query parameters",
+            requestId,
+          },
+        });
+        return;
+      }
 
 webhooksRouter.get("/", async (req, res, next) => {
   const reqId = getRequestId();
