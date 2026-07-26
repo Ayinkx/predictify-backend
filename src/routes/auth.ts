@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
+import { conditionalGet } from "../middleware/etag";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import {
   rotateRefreshToken,
@@ -51,6 +52,8 @@ authRouter.post("/refresh", async (req, res, next) => {
       throw result.error;
     }
 
+    if (conditionalGet(result.value, req, res)) return;
+
     res.json(result.value);
   } catch (err) {
     next(err);
@@ -99,10 +102,14 @@ authRouter.post("/challenge", async (req, res, next) => {
     }
 
     const result = await createChallenge(parsed.data.stellarAddress);
-    res.status(201).json({
+    const payload = {
       nonce: result.nonce,
       expiresAt: result.expiresAt.toISOString(),
-    });
+    };
+
+    if (conditionalGet(payload, req, res)) return;
+
+    res.status(201).json(payload);
   } catch (e) {
     next(e);
   }
@@ -133,6 +140,8 @@ authRouter.post("/verify", async (req, res, next) => {
     if (!result.ok) {
       throw result.error;
     }
+
+    if (conditionalGet(result.value, req, res)) return;
 
     res.status(200).json(result.value);
   } catch (e) {
