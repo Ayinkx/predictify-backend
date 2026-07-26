@@ -144,6 +144,7 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use("/api/users", usersRouter);
   app.use("/api/me/devices", devicesRouter);
   app.use("/api/me/sessions", sessionsRouter);
+  app.use("/api/webhooks", webhooksRouter);
   app.use("/api/admin/audit", adminAuditRouter);
   app.use("/api/admin/audit", adminAuditExportRouter);
   app.use("/api/admin/users", adminUsersRouter);
