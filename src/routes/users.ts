@@ -24,7 +24,6 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
-import { z } from "zod";
 import {
   getUserByAddress,
   getUserPredictions,
@@ -36,17 +35,17 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { accessLog } from "../middleware/accessLog";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
-import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
+import { clampLimit } from "../utils/cursor";
 import { RouteErrorFactory } from "../errors";
 import { requestTimeout } from "../middleware/timeout";
 import { usersMetricsMiddleware } from "../metrics/usersMetrics";
+import {
+  stellarAddressParamsSchema,
+  stellarAddressProfileParamsSchema,
+  userPredictionsQuerySchema,
+} from "../validators/users";
 
 export const usersRouter = Router();
-
-/** Zod schema for a valid Stellar public key (56-char G… address). */
-const stellarAddressSchema = z
-  .string()
-  .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar address");
 
 // ---------------------------------------------------------------------------
 // Access log — must be the first middleware so every handler inherits the
@@ -127,25 +126,26 @@ usersRouter.get(
     const reqId = correlationId;
 
     try {
-      const address = req.params.address as string;
-
       // Validate the Stellar address at the route boundary before touching the DB.
-      const addrParse = stellarAddressSchema.safeParse(address);
-      if (!addrParse.success) {
-        logger.warn({ correlationId, reqId, address }, "predictions_invalid_address");
+      const paramsParse = stellarAddressParamsSchema.safeParse(req.params);
+      if (!paramsParse.success) {
+        logger.warn(
+          { correlationId, reqId, address: req.params.address, issues: paramsParse.error.issues },
+          "predictions_invalid_address",
+        );
         return res.status(400).json({
-          error: { code: "invalid_address", requestId: reqId },
+          error: {
+            code: "invalid_address",
+            message: paramsParse.error.issues[0]?.message ?? "invalid stellar address",
+            requestId: reqId,
+          },
         });
       }
 
-      // Validate and coerce query parameters with zod.
-      const querySchema = z.object({
-        status: z.enum(["pending", "confirmed", "won", "lost", "claimed"]).optional(),
-        cursor: z.string().optional(),
-        limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_PAGE_SIZE),
-      });
+      const address = paramsParse.data.address;
 
-      const queryParse = querySchema.safeParse(req.query);
+      // Validate and coerce query parameters with zod.
+      const queryParse = userPredictionsQuerySchema.safeParse(req.query);
       if (!queryParse.success) {
         logger.warn(
           { correlationId, reqId, address, issues: queryParse.error.issues },
@@ -205,7 +205,7 @@ usersRouter.get(
     const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
     const reqId = correlationId;
 
-    const parseResult = stellarAddressSchema.safeParse(req.params.stellarAddress);
+    const parseResult = stellarAddressProfileParamsSchema.safeParse(req.params);
     if (!parseResult.success) {
       logger.warn(
         {
@@ -224,7 +224,7 @@ usersRouter.get(
       );
     }
 
-    const stellarAddress = parseResult.data;
+    const stellarAddress = parseResult.data.stellarAddress;
 
     try {
       logger.debug({ correlationId, reqId, stellarAddress }, "user_profile_lookup");
