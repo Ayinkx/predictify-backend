@@ -17,6 +17,7 @@ import { recommendationsRouter } from "./recommendations";
 import { trendingRouter } from "./trending";
 import { tagsRouter } from "./tags";
 import { predictionCountRouter } from "./prediction-count";
+import { watchersRouter } from "./watchers";
 import { marketAuditRouter } from "../marketAudit";
 import { disputesRouter } from "../disputes";
 import {
@@ -36,6 +37,7 @@ marketsRouter.use("/recommendations", recommendationsRouter);
 marketsRouter.use("/trending", trendingRouter);
 marketsRouter.use("/:id/recommendations", recommendationsRouter);
 marketsRouter.use("/:id/prediction-count", predictionCountRouter);
+marketsRouter.use("/:id/watchers", watchersRouter);
 marketsRouter.use("/:id/audit", marketAuditRouter);
 marketsRouter.use("/:id/disputes", disputesRouter);
 

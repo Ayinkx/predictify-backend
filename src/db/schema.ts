@@ -528,3 +528,37 @@ export const scheduledReports = pgTable(
 
 export type ScheduledReport = typeof scheduledReports.$inferSelect;
 export type NewScheduledReport = typeof scheduledReports.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Market Watchers
+// ---------------------------------------------------------------------------
+/**
+ * market_watchers — tracks users watching/subscribed to a market.
+ */
+export const marketWatchers = pgTable(
+  "market_watchers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    marketId: text("market_id")
+      .notNull()
+      .references(() => markets.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    marketWatchersMarketIdIdx: index("market_watchers_market_id_idx").on(t.marketId),
+    marketWatchersUserIdIdx: index("market_watchers_user_id_idx").on(t.userId),
+    marketWatchersMarketUserIdx: index("market_watchers_market_user_idx").on(
+      t.marketId,
+      t.userId,
+    ),
+  }),
+);
+
+export type MarketWatcher = typeof marketWatchers.$inferSelect;
+export type NewMarketWatcher = typeof marketWatchers.$inferInsert;
+
