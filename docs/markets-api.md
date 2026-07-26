@@ -106,3 +106,5 @@ If-None-Match: "<etag>"
 
 - `401 Unauthorized` when the bearer token is missing, malformed, invalid, or
   belongs to no known user.
+
+- `408 timeout` - The server aborted the request because it exceeded the maximum allowed duration.

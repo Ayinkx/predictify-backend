@@ -19,6 +19,7 @@ import { tagsRouter } from "./tags";
 import { predictionCountRouter } from "./prediction-count";
 import { marketAuditRouter } from "../marketAudit";
 import { disputesRouter } from "../disputes";
+import { requestTimeout } from "../../middleware/timeout";
 import {
   listMarketsQuerySchema,
   searchMarketsQuerySchema,
@@ -31,6 +32,7 @@ import {
 export const marketsRouter = Router();
 
 marketsRouter.use(rateLimitAnon);
+marketsRouter.use(requestTimeout(10000));
 marketsRouter.use("/tags", tagsRouter);
 marketsRouter.use("/recommendations", recommendationsRouter);
 marketsRouter.use("/trending", trendingRouter);
