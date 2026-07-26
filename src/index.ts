@@ -31,7 +31,8 @@ import { createDocsRouter } from "./routes/docs";
 import { sessionsRouter } from "./routes/me/sessions";
 import { notificationsRouter } from "./routes/notifications";
 import { socialRouter } from "./routes/social";
-import { createWebhooksRouter } from "./routes/webhooks";
+import { webhooksRouter } from "./routes/webhooks";
+import { subscriptionsRouter } from "./routes/subscriptions";
 import { adminAuditRouter } from "./routes/admin/audit";
 import { adminAuditExportRouter } from "./routes/admin/audit/export";
 import { auditCountsRouter } from "./routes/audit/counts";
@@ -148,6 +149,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/quota/requests", quotaRequestsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/webhooks", webhooksRouter);
+  app.use("/api/subscriptions", subscriptionsRouter);
   app.use("/api/users/health", usersHealthRouter);
   app.use("/api/users", socialRouter);
   app.use("/api/users", userPortfolioRouter);
