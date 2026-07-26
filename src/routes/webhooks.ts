@@ -25,7 +25,7 @@ import { Router } from "express";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { requireAdmin } from "../middleware/requireAdmin";
-import { webhookRequestDuration } from "../metrics/registry";
+import { webhooksMetricsMiddleware } from "../metrics/webhooksMetrics";
 import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
 import { listWebhooksQuerySchema } from "../validators/webhooks";
 
@@ -48,7 +48,8 @@ function serializeDelivery(row: WebhookDelivery) {
 // Router
 // ---------------------------------------------------------------------------
 
-export const webhooksRouter = Router();
+  router.use(webhooksMetricsMiddleware);
+  router.use(requireAdmin);
 
   router.get("/", async (req, res, next) => {
     const endTimer = webhookRequestDuration.startTimer({

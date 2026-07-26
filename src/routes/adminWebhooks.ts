@@ -2,6 +2,7 @@ import { Router } from "express";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { requireAdmin } from "../middleware/requireAdmin";
+import { webhooksMetricsMiddleware } from "../metrics/webhooksMetrics";
 import type { IWebhookDispatcher } from "../services/webhookDispatcher";
 import type { DlqRow, WebhookStore } from "../services/webhookStore";
 import { RouteErrorFactory } from "../errors";
@@ -39,6 +40,7 @@ function serializeDlqRow(row: DlqRow) {
 
 export function createAdminWebhooksRouter(deps: AdminWebhookDeps): Router {
   const router = Router();
+  router.use(webhooksMetricsMiddleware);
   router.use(requireAdmin);
 
   router.get("/dlq", async (req, res, next) => {
