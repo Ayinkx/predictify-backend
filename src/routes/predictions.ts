@@ -9,15 +9,15 @@ import { createShareRouter } from "./predictions/share";
 import { listPredictions } from "../repositories/predictionRepo";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
-import { clampLimit } from "../utils/cursor";
+import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
+import { requestTimeout } from "../middleware/timeout";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { listPredictionsQuerySchema } from "../validators/predictions";
 
 export const predictionsRouter = Router();
 
-// Access logging must run before route-specific handlers so the correlation ID
-// is available on the response and the structured log is emitted on finish.
-predictionsRouter.use(accessLog);
+// ── Per-request timeout middleware ────────────────────────────────────────
+predictionsRouter.use(requestTimeout(15000));
 
 // ── Public sub-routers (no auth required) ────────────────────────────────
 // Must be registered before the requireAuth guard so bots / crawlers can
