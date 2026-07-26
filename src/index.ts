@@ -37,6 +37,7 @@ import { adminAuditRouter } from "./routes/admin/audit";
 import { adminAuditExportRouter } from "./routes/admin/audit/export";
 import { auditCountsRouter } from "./routes/audit/counts";
 import { adminMarketsRouter } from "./routes/admin/markets";
+import { adminReconciliationRouter } from "./routes/admin/reconciliation";
 import { adminSchemaVersionsRouter } from "./routes/admin/schema-versions";
 import { errorHandler } from "./middleware/errorHandler";
 import { requestContextStorage } from "./lib/requestContext";
@@ -164,11 +165,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use("/api/admin/users", adminNotesRouter);
   app.use("/api/admin/feature-flags", adminFeatureFlagsRouter);
   app.use("/api/admin/markets", adminMarketsRouter);
-  app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
-  app.use("/api/admin/force-resolve", forceResolveRouter);
-  app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
-  app.use("/api/reports/scheduled", scheduledReportsRouter);
-  app.use("/api/stats", statsRouter);
+  app.use("/api/admin/recon", adminReconciliationRouter);
+  app.use("/api/admin/db", adminDbVacuumRouter);
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;

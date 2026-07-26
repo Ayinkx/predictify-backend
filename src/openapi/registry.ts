@@ -2577,311 +2577,92 @@ registry.registerPath({
   },
 });
 
-// ── /api/stats ───────────────────────────────────────────────────────────────
+// ── /api/admin/recon ─────────────────────────────────────────────────────────
 
-const MarketBreakdown = z
+const ReconciliationSidePosition = z
   .object({
-    total: z.number().int(),
-    active: z.number().int(),
-    resolved: z.number().int(),
+    stellarAddress: z.string(),
+    outcome: z.string(),
+    amount: z.string(),
   })
-  .openapi("MarketBreakdown");
+  .openapi("ReconciliationSidePosition");
 
-const GlobalStats = z
+const ReconciliationDiffEntry = z
   .object({
-    users: z.number().int(),
-    markets: MarketBreakdown,
-    predictions: z.number().int(),
-    claims: z.number().int(),
+    key: z.object({ stellarAddress: z.string(), outcome: z.string() }),
+    dbAmount: z.string(),
+    onChainAmount: z.string().nullable(),
+    difference: z.string().nullable(),
+    status: z.enum(["match", "mismatch", "missing_on_chain", "missing_in_db"]),
   })
-  .openapi("GlobalStats");
+  .openapi("ReconciliationDiffEntry");
 
-registry.registerPath({
-  method: "get",
-  path: "/api/stats",
-  operationId: "getGlobalStats",
-  tags: ["Stats"],
-  summary: "Get global platform statistics",
-  description:
-    "Returns aggregate platform-level statistics including total users, markets " +
-    "(total / active / resolved), predictions, and claims. " +
-    "Responses include a strong ETag and Cache-Control: no-cache header for " +
-    "efficient conditional GET (304 Not Modified) support.\n" +
-    "\n" +
-    "**Caching**: Responses include a strong `ETag` (SHA-256 of the JSON body) and " +
-    "`Cache-Control: no-cache`. Clients should store the ETag and send it back as " +
-    "`If-None-Match` on subsequent requests. A matching ETag returns 304 with no body.",
-  responses: {
-    200: {
-      description: "Global platform statistics",
-      content: {
-        "application/json": {
-          schema: z.object({ data: GlobalStats }),
-          examples: {
-            default: {
-              value: {
-                data: {
-                  users: 1234,
-                  markets: { total: 56, active: 34, resolved: 22 },
-                  predictions: 9876,
-                  claims: 432,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    304: {
-      description: "Not Modified — client already has the latest stats (ETag match)",
-    },
-  },
-});
-
-// ── /api/quota/requests ──────────────────────────────────────────────────
-
-const QuotaType = z.enum(["prediction_limit", "daily_prediction_limit", "claim_limit"]).openapi("QuotaType");
-
-const CreateQuotaRequestSchema = z
+const ReconciliationSummary = z
   .object({
-    quotaType: QuotaType,
-    requestedValue: z.number().int().min(1),
-    reason: z.string().min(10).max(1000),
+    totalKeys: z.number().int(),
+    matches: z.number().int(),
+    mismatches: z.number().int(),
+    missingOnChain: z.number().int(),
+    missingInDb: z.number().int(),
   })
-  .openapi("CreateQuotaRequest");
+  .openapi("ReconciliationSummary");
 
-const QuotaRequestSchema = z
+const MarketReconciliationResult = z
   .object({
-    id: z.string().uuid(),
-    userId: z.string().uuid(),
-    quotaType: z.string(),
-    requestedValue: z.number().int(),
-    reason: z.string(),
-    status: z.string(),
-    reviewedBy: z.string().nullable(),
-    reviewNotes: z.string().nullable(),
-    reviewedAt: z.string().datetime().nullable(),
-    createdAt: z.string().datetime(),
-    updatedAt: z.string().datetime(),
-  })
-  .openapi("QuotaRequest");
-
-registry.registerPath({
-  method: "post",
-  path: "/api/quota/requests",
-  operationId: "createQuotaRequest",
-  tags: ["Quota"],
-  summary: "Submit a quota increase request",
-  description:
-    "Authenticated users can request an increase to their rate limits. " +
-    "Each user may have at most 5 pending requests at a time.",
-  security: [{ bearerAuth: [] }],
-  request: {
-    body: { content: { "application/json": { schema: CreateQuotaRequestSchema } } },
-  },
-  responses: {
-    201: {
-      description: "Quota request created",
-      content: {
-        "application/json": { schema: z.object({ data: QuotaRequestSchema }) },
-      },
-    },
-    400: {
-      description: "Validation error or too many pending requests",
-      content: { "application/json": { schema: ValidationErrorBody } },
-    },
-    401: {
-      description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-    403: {
-      description: "Forbidden",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-    422: {
-      description: "Validation error",
-      content: { "application/json": { schema: ValidationErrorBody } },
-    },
-    429: {
-      description: "Rate limit exceeded",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/quota/requests",
-  operationId: "listQuotaRequests",
-  tags: ["Quota"],
-  summary: "List quota requests for the authenticated user",
-  description: "Returns all quota requests submitted by the authenticated user, newest first.",
-  security: [{ bearerAuth: [] }],
-  responses: {
-    200: {
-      description: "List of quota requests",
-      content: {
-        "application/json": {
-          schema: z.object({ data: z.array(QuotaRequestSchema) }),
-        },
-      },
-    },
-    401: {
-      description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-    403: {
-      description: "Forbidden",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-    429: {
-      description: "Rate limit exceeded",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-  },
-});
-
-// ── /api/leaderboard/global ──────────────────────────────────────────────────
-
-/**
- * GlobalLeaderboardEntry — a single row in the global leaderboard.
- * Aggregated across ALL markets (no time-window filter).
- */
-const GlobalLeaderboardEntry = registry.register(
-  "GlobalLeaderboardEntry",
-  z
-    .object({
-      user_id: z.string().uuid().describe("Internal user UUID"),
-      stellar_address: z.string().describe("User's Stellar public key (G…)"),
-      total_predictions: z
-        .number()
-        .int()
-        .nonnegative()
-        .describe("Total predictions placed across all markets"),
-      correct_predictions: z
-        .number()
-        .int()
-        .nonnegative()
-        .describe("Predictions whose outcome matched the resolved market outcome"),
-      accuracy_percentage: z
-        .number()
-        .min(0)
-        .max(100)
-        .describe("Accuracy as a percentage (0–100), rounded to 2 d.p."),
-      total_markets: z
-        .number()
-        .int()
-        .nonnegative()
-        .describe("Number of distinct markets in which the user participated"),
-      rank: z
-        .number()
-        .int()
-        .positive()
-        .describe(
-          "1-based global rank, ordered by accuracy DESC then total_predictions DESC",
-        ),
-    })
-    .openapi("GlobalLeaderboardEntry"),
-);
-
-registry.registerPath({
-  method: "get",
-  path: "/api/leaderboard/global",
-  operationId: "getGlobalLeaderboard",
-  tags: ["Leaderboard"],
-  summary: "Global leaderboard across all markets",
-  description:
-    "Returns a paginated leaderboard ranking all users by their prediction " +
-    "accuracy and volume across **every** market on the platform. " +
-    "Results are cached for 5 minutes. " +
-    "Pass `refresh=true` to force an immediate materialized-view refresh " +
-    "(expensive; intended for admin/debug use).",
-  request: {
-    query: z.object({
-      limit: z.coerce
-        .number()
-        .int()
-        .positive()
-        .max(100)
-        .default(50)
-        .describe("Maximum entries to return (1–100, default 50)"),
-      offset: z.coerce
-        .number()
-        .int()
-        .nonnegative()
-        .default(0)
-        .describe("Zero-based row offset for pagination (default 0)"),
-      refresh: z.coerce
-        .boolean()
-        .default(false)
-        .describe(
-          "When true, triggers REFRESH MATERIALIZED VIEW CONCURRENTLY before querying",
-        ),
+    marketId: z.string(),
+    correlationId: z.string(),
+    generatedAt: z.string().datetime(),
+    status: z.enum(["ok", "partial"]),
+    dbSnapshot: z.object({
+      positions: z.array(ReconciliationSidePosition),
+      totalAmount: z.string(),
     }),
+    onChainSnapshot: z.object({
+      positions: z.array(ReconciliationSidePosition),
+      totalAmount: z.string(),
+      available: z.boolean(),
+      source: z.string(),
+      unavailableReason: z.string().nullable(),
+    }),
+    summary: ReconciliationSummary,
+    diffs: z.array(ReconciliationDiffEntry),
+  })
+  .openapi("MarketReconciliationResult");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/recon/markets/{id}",
+  operationId: "adminReconcileMarket",
+  tags: ["Admin"],
+  summary: "On-demand market reconciliation (admin only)",
+  description:
+    "Compares confirmed on-chain positions against the database snapshot for a " +
+    "single market and returns a structured diff. " +
+    "Every call is audit-logged as `admin.reconciliation.market.inspect`. " +
+    "Returns `status: \"partial\"` when the on-chain adapter is not yet wired.",
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string().min(1).max(255).describe("Market ID") }),
   },
   responses: {
     200: {
-      description: "Paginated global leaderboard",
+      description: "Reconciliation result",
       content: {
         "application/json": {
-          schema: z.object({
-            data: z.array(GlobalLeaderboardEntry),
-            meta: z.object({
-              limit: z.number().int(),
-              offset: z.number().int(),
-              count: z.number().int(),
-              refresh: z.boolean(),
-            }),
-          }),
+          schema: z.object({ data: MarketReconciliationResult }),
         },
       },
     },
     400: {
-      description: "Invalid query parameters",
+      description: "Validation error — invalid market ID",
       content: { "application/json": { schema: ValidationErrorBody } },
     },
-    429: {
-      description: "Rate limit exceeded",
+    403: {
+      description: "Forbidden — missing or non-admin JWT",
       content: { "application/json": { schema: ErrorBody } },
-    },
-    500: {
-      description: "Internal server error",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/leaderboard/global/user/{stellarAddress}",
-  operationId: "getGlobalLeaderboardEntry",
-  tags: ["Leaderboard"],
-  summary: "Get a single user's global leaderboard entry",
-  description:
-    "Looks up the global leaderboard rank and stats for a specific Stellar " +
-    "address. Returns 404 when the address has never placed a prediction.",
-  request: {
-    params: z.object({
-      stellarAddress: z
-        .string()
-        .describe("The user's Stellar public key (G…)"),
-    }),
-  },
-  responses: {
-    200: {
-      description: "User's global leaderboard entry",
-      content: {
-        "application/json": {
-          schema: z.object({ data: GlobalLeaderboardEntry }),
-        },
-      },
     },
     404: {
-      description: "Address not found on the global leaderboard",
-      content: { "application/json": { schema: ErrorBody } },
-    },
-    429: {
-      description: "Rate limit exceeded",
+      description: "Market not found",
       content: { "application/json": { schema: ErrorBody } },
     },
     500: {
