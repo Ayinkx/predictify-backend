@@ -117,6 +117,12 @@ function makeRes(): Response & { _headers: Record<string, string>; locals: Recor
     setHeader(name: string, value: string) {
       headers[name] = value;
     },
+    getHeader(name: string) {
+      return headers[name] ?? headers[name.toLowerCase()];
+    },
+    get(name: string) {
+      return this.getHeader(name);
+    },
     _headers: headers,
   });
 
@@ -338,6 +344,39 @@ describe("accessLog middleware", () => {
         durationMs: expect.any(Number),
       }),
       "predictions_access_log",
+    );
+  });
+
+  it("emits a tags_access_log entry when originalUrl starts with /api/tags, including size and actor", async () => {
+    const req = makeReq({
+      headers: { "x-correlation-id": "tags-log-test-id" },
+      method: "GET",
+      path: "/api/tags",
+      ip: "10.0.0.3",
+    });
+    (req as any).user = { id: "test-actor-123" };
+    const res = makeRes();
+    res.setHeader("Content-Length", "42");
+    const next: NextFunction = jest.fn();
+
+    accessLog(req, res, next);
+    await fireFinish(res);
+
+    expect(loggerInfoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: "tags-log-test-id",
+        "req-id": "tags-log-test-id",
+        method: "GET",
+        path: "/api/tags",
+        statusCode: 200,
+        status: 200,
+        ip: "10.0.0.3",
+        durationMs: expect.any(Number),
+        latency: expect.any(Number),
+        size: 42,
+        actor: "test-actor-123",
+      }),
+      "tags_access_log",
     );
   });
 
