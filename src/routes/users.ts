@@ -146,6 +146,7 @@ usersRouter.get("/", async (req: Request, res: Response, next: NextFunction) => 
 });
 
 usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, res, next) => {
+  const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
   try {
     const userId = req.user!.id;
     const result = await getCurrentUserProfile(userId);

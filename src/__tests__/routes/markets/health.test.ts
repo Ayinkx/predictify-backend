@@ -1,5 +1,6 @@
 import request from "supertest";
 import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import { createMarketsHealthRouter } from "../../../../src/routes/markets/health";
 
 const MOCK_HEALTH = {
@@ -63,7 +64,7 @@ describe("Markets Health Router (v7)", () => {
     }));
 
     // Add a basic error handler to catch it
-    app.use((err: any, req: any, res: any, next: any) => {
+    app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
       res.status(500).json({ error: err.message });
     });
 
