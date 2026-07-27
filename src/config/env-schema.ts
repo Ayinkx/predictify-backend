@@ -61,6 +61,10 @@ const baseSchema = z.object({
   ANON_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
   TRUST_PROXY: z.coerce.boolean().default(false),
 
+  // ── Login rate limiting (per-IP, sliding window) ─────────
+  LOGIN_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+
   // ── Captcha gate (per-IP, unauthenticated endpoints) ─────
   /** Number of requests per IP per window before captcha is required (0 = disabled) */
   CAPTCHA_THRESHOLD: z.coerce.number().int().nonnegative().default(10),
