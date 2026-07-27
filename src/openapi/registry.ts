@@ -474,12 +474,47 @@ registry.registerPath({
     200: {
       description: "Array of recommended markets",
       content: {
-        "application/json": { schema: z.object({ data: z.array(Market) }) },
+        "application/json": {
+          schema: z.object({ data: z.array(Market) }),
+          examples: {
+            recommendedMarkets: {
+              value: {
+                data: [
+                  {
+                    id: "market-003",
+                    question: "Will Bitcoin close above $100k in 2026?",
+                    status: "active",
+                    metadata: {
+                      category: "crypto",
+                      resolutionSource: "official",
+                    },
+                    version: 1,
+                    createdAt: "2026-03-01T09:00:00.000Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
       },
     },
     401: {
       description: "Unauthorized",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            unauthorized: {
+              value: {
+                error: {
+                  code: "unauthorized",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -550,12 +585,66 @@ registry.registerPath({
     200: {
       description: "Search results",
       content: {
-        "application/json": { schema: MarketSearchResult },
+        "application/json": {
+          schema: MarketSearchResult,
+          examples: {
+            searchResults: {
+              value: {
+                data: [
+                  {
+                    id: "market-001",
+                    question: "Will the US win the 2026 FIFA World Cup?",
+                    status: "active",
+                    metadata: {
+                      category: "sports",
+                      resolutionSource: "official",
+                    },
+                    version: 1,
+                    createdAt: "2026-01-10T12:00:00.000Z",
+                  },
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0,
+                page: 1,
+                fallback: false,
+                pagination: {
+                  limit: 20,
+                  offset: 0,
+                  page: 1,
+                  total: 1,
+                  fallback: false,
+                },
+                meta: {
+                  limit: 20,
+                  offset: 0,
+                  page: 1,
+                  total: 1,
+                  fallback: false,
+                },
+              },
+            },
+          },
+        },
       },
     },
     400: {
       description: "Missing query parameter",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            missingQuery: {
+              value: {
+                error: {
+                  code: "validation_error",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -579,6 +668,17 @@ registry.registerPath({
               }),
             ),
           }),
+          examples: {
+            tagCounts: {
+              value: {
+                data: [
+                  { tag: "sports", count: 42 },
+                  { tag: "crypto", count: 17 },
+                  { tag: "technology", count: 9 },
+                ],
+              },
+            },
+          },
         },
       },
     },
@@ -666,24 +766,104 @@ registry.registerPath({
   security: [{ bearerAuth: [] }],
   request: {
     params: z.object({ id: z.string() }),
-    body: { content: { "application/json": { schema: PatchMarketRequest } } },
+    body: {
+      content: {
+        "application/json": {
+          schema: PatchMarketRequest,
+          examples: {
+            updateQuestion: {
+              value: {
+                question: "Will the US win the 2026 FIFA World Cup Final?",
+                metadata: { category: "sports" },
+                expectedVersion: 1,
+              },
+            },
+          },
+        },
+      },
+    },
   },
   responses: {
     200: {
       description: "Updated market",
-      content: { "application/json": { schema: z.object({ data: Market }) } },
+      content: {
+        "application/json": {
+          schema: z.object({ data: Market }),
+          examples: {
+            updatedMarket: {
+              value: {
+                data: {
+                  id: "market-001",
+                  question: "Will the US win the 2026 FIFA World Cup Final?",
+                  status: "active",
+                  metadata: { category: "sports" },
+                  version: 2,
+                  createdAt: "2026-01-10T12:00:00.000Z",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     400: {
       description: "Validation error",
-      content: { "application/json": { schema: ValidationErrorBody } },
+      content: {
+        "application/json": {
+          schema: ValidationErrorBody,
+          examples: {
+            invalidBody: {
+              value: {
+                error: {
+                  code: "validation_error",
+                  details: [
+                    {
+                      path: ["expectedVersion"],
+                      message: "expectedVersion is required",
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
     },
     404: {
       description: "Not found",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            notFound: {
+              value: {
+                error: {
+                  code: "not_found",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     409: {
       description: "Version conflict",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            versionConflict: {
+              value: {
+                error: {
+                  code: "conflict",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -715,15 +895,59 @@ registry.registerPath({
   responses: {
     200: {
       description: "Prediction count",
-      content: { "application/json": { schema: PredictionCountResponse } },
+      content: {
+        "application/json": {
+          schema: PredictionCountResponse,
+          examples: {
+            predictionCount: {
+              value: {
+                data: {
+                  marketId: "market-001",
+                  count: 128,
+                  computedAt: "2026-06-27T12:00:00.000Z",
+                  cached: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
     400: {
       description: "Validation error",
-      content: { "application/json": { schema: ValidationErrorBody } },
+      content: {
+        "application/json": {
+          schema: ValidationErrorBody,
+          examples: {
+            invalidId: {
+              value: {
+                error: {
+                  code: "validation_error",
+                  details: [{ path: ["id"], message: "Market ID is required" }],
+                },
+              },
+            },
+          },
+        },
+      },
     },
     404: {
       description: "Market not found",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            notFound: {
+              value: {
+                error: {
+                  code: "not_found",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -908,12 +1132,45 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: z.object({ data: z.array(FeaturedMarket) }),
+          examples: {
+            featuredMarkets: {
+              value: {
+                data: [
+                  {
+                    id: "market-001",
+                    question: "Will the US win the 2026 FIFA World Cup?",
+                    status: "active",
+                    resolutionOutcome: null,
+                    resolutionTime: "2026-07-19T00:00:00.000Z",
+                    winningOutcome: null,
+                    metadata: { category: "sports" },
+                    featuredAt: "2026-06-20T08:00:00.000Z",
+                    featuredBy: "GADMIN1234567890DEFGHIJKLMNOPQRSTUV",
+                  },
+                ],
+              },
+            },
+          },
         },
       },
     },
     400: {
       description: "Invalid query parameters",
-      content: { "application/json": { schema: ErrorBody } },
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            invalidLimit: {
+              value: {
+                error: {
+                  code: "validation_error",
+                  requestId: "req_abc123",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
@@ -1796,7 +2053,7 @@ registry.registerPath({
         "application/json": {
           schema: PredictionsListResponse,
           examples: {
-            success: {
+            authenticatedPredictionsPage: {
               value: {
                 data: [
                   {
@@ -2668,6 +2925,378 @@ registry.registerPath({
     500: {
       description: "Internal server error",
       content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
+// ── /api/webhooks ─────────────────────────────────────────────────────────────
+
+const DeliveryStatus = z
+  .enum(["pending", "delivered", "failed"])
+  .openapi("DeliveryStatus", {
+    description: "Current delivery state of a webhook attempt",
+  });
+
+const WebhookDelivery = z
+  .object({
+    id: z.string().uuid().describe("Unique delivery ID"),
+    eventId: z.string().describe("Opaque event identifier supplied by the emitting service"),
+    eventType: z.string().describe('Event type string, e.g. "market.resolved" or "dispute.opened"'),
+    targetUrl: z.string().url().describe("The subscriber endpoint the delivery is sent to"),
+    payloadBase64: z.string().describe("Base64-encoded signed request body"),
+    signature: z.string().describe("HMAC-SHA256 signature over the payload, sent as a request header"),
+    headers: z
+      .record(z.string())
+      .nullable()
+      .describe("Extra HTTP headers sent with the delivery (may be null)"),
+    status: DeliveryStatus,
+    attempts: z.number().int().nonnegative().describe("Number of delivery attempts made so far"),
+    maxAttempts: z.number().int().positive().describe("Maximum attempts before the delivery is dead-lettered"),
+    lastError: z.string().nullable().describe("Error message from the most recent failed attempt, or null"),
+    nextAttemptAt: z
+      .string()
+      .datetime()
+      .nullable()
+      .describe("ISO 8601 timestamp of the next scheduled retry, or null when terminal"),
+    createdAt: z.string().datetime().describe("ISO 8601 timestamp when this delivery record was created"),
+    updatedAt: z.string().datetime().describe("ISO 8601 timestamp of the most recent status change"),
+  })
+  .openapi("WebhookDelivery");
+
+const DlqRow = z
+  .object({
+    id: z.string().uuid().describe("DLQ row ID (distinct from the original delivery ID)"),
+    originalId: z.string().uuid().describe("ID of the original live delivery that was dead-lettered"),
+    eventId: z.string().describe("Opaque event identifier from the original delivery"),
+    eventType: z.string().describe("Event type string from the original delivery"),
+    targetUrl: z.string().url().describe("Subscriber endpoint that failed to receive the delivery"),
+    payloadBase64: z.string().describe("Base64-encoded signed request body, identical to the original delivery"),
+    signature: z.string().describe("HMAC-SHA256 signature from the original delivery"),
+    headers: z
+      .record(z.string())
+      .nullable()
+      .describe("Extra HTTP headers from the original delivery (may be null)"),
+    attempts: z.number().int().nonnegative().describe("Total number of delivery attempts before dead-lettering"),
+    maxAttempts: z.number().int().positive().describe("Configured maximum attempts for the original delivery"),
+    lastError: z.string().describe("Error message from the final failed attempt"),
+    failedAt: z.string().datetime().describe("ISO 8601 timestamp when the delivery was moved to the DLQ"),
+    replayedAt: z
+      .string()
+      .datetime()
+      .nullable()
+      .describe("ISO 8601 timestamp of the replay request, or null if not yet replayed"),
+    replayDeliveryId: z
+      .string()
+      .uuid()
+      .nullable()
+      .describe("ID of the fresh live delivery created by replay, or null if not yet replayed"),
+  })
+  .openapi("DlqRow");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/webhooks",
+  operationId: "listWebhookDeliveries",
+  tags: ["Webhooks"],
+  summary: "List live webhook deliveries (admin only)",
+  description:
+    "Returns a cursor-paginated list of live webhook delivery records ordered newest-first " +
+    "(by `createdAt` DESC, then `id` DESC as a stable tie-breaker). Only deliveries that have " +
+    "not yet been dead-lettered are returned here; exhausted deliveries appear in the DLQ at " +
+    "`GET /api/admin/webhooks/dlq`. Requires an admin JWT (`role: \"admin\"`).",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      cursor: z.string().min(1).optional(),
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated page of live webhook deliveries",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(WebhookDelivery),
+            nextCursor: z.string().nullable(),
+          }),
+          examples: {
+            webhookDeliveriesPage: {
+              summary: "First page of live deliveries with one pending and one delivered record",
+              value: {
+                data: [
+                  {
+                    id: "d1a2b3c4-0001-4000-8000-000000000001",
+                    eventId: "evt-market-resolved-001",
+                    eventType: "market.resolved",
+                    targetUrl: "https://example.com/hooks/predictify",
+                    payloadBase64:
+                      "eyJldmVudCI6Im1hcmtldC5yZXNvbHZlZCIsImlkIjoiZDFhMmIzYzQtMDAwMS00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIn0=",
+                    signature: "sha256=abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+                    headers: null,
+                    status: "delivered",
+                    attempts: 1,
+                    maxAttempts: 5,
+                    lastError: null,
+                    nextAttemptAt: null,
+                    createdAt: "2026-07-25T12:00:00.000Z",
+                    updatedAt: "2026-07-25T12:00:05.000Z",
+                  },
+                  {
+                    id: "d1a2b3c4-0002-4000-8000-000000000002",
+                    eventId: "evt-dispute-opened-001",
+                    eventType: "dispute.opened",
+                    targetUrl: "https://example.com/hooks/predictify",
+                    payloadBase64: "eyJldmVudCI6ImRpc3B1dGUub3BlbmVkIn0=",
+                    signature: "sha256=fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+                    headers: null,
+                    status: "pending",
+                    attempts: 0,
+                    maxAttempts: 5,
+                    lastError: null,
+                    nextAttemptAt: "2026-07-25T11:00:30.000Z",
+                    createdAt: "2026-07-25T11:00:00.000Z",
+                    updatedAt: "2026-07-25T11:00:00.000Z",
+                  },
+                ],
+                nextCursor:
+                  "eyJzb3J0VmFsdWUiOiIyMDI2LTA3LTI1VDExOjAwOjAwLjAwMFoiLCJpZCI6ImQxYTJiM2M0LTAwMDItNDAwMC04MDAwLTAwMDAwMDAwMDAwMiJ9",
+              },
+            },
+            emptyPage: {
+              summary: "Empty page when no live deliveries exist",
+              value: { data: [], nextCursor: null },
+            },
+          },
+        },
+      },
+    },
+    400: {
+      description: "Invalid query parameters",
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            invalidLimit: {
+              summary: "Non-numeric limit value",
+              value: {
+                error: {
+                  code: "validation_error",
+                  message: "limit must be a positive integer",
+                  requestId: "req-abc-123",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    401: {
+      description: "Missing or invalid JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    403: {
+      description: "Caller is not an admin",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/admin/webhooks/dlq",
+  operationId: "listWebhookDlq",
+  tags: ["Webhooks"],
+  summary: "List dead-lettered webhook deliveries (admin only)",
+  description:
+    "Returns a cursor-paginated list of dead-lettered webhook deliveries ordered by `failedAt` DESC. " +
+    "A delivery appears here after exhausting all retry attempts. Use " +
+    "`POST /api/admin/webhooks/dlq/{id}/replay` to re-enqueue an individual entry. " +
+    "Requires an admin JWT (`role: \"admin\"`).",
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      cursor: z.string().min(1).optional(),
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated page of DLQ entries",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(DlqRow),
+            nextCursor: z.string().nullable(),
+          }),
+          examples: {
+            dlqPage: {
+              summary: "First DLQ page containing one unreplayed and one already-replayed entry",
+              value: {
+                data: [
+                  {
+                    id: "dddd1111-aaaa-4000-8000-000000000001",
+                    originalId: "d1a2b3c4-0001-4000-8000-000000000001",
+                    eventId: "evt-market-resolved-002",
+                    eventType: "market.resolved",
+                    targetUrl: "https://example.com/hooks/predictify",
+                    payloadBase64: "eyJldmVudCI6Im1hcmtldC5yZXNvbHZlZCJ9",
+                    signature: "sha256=1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+                    headers: null,
+                    attempts: 5,
+                    maxAttempts: 5,
+                    lastError: "HTTP 503: Service Unavailable",
+                    failedAt: "2026-07-25T10:00:00.000Z",
+                    replayedAt: null,
+                    replayDeliveryId: null,
+                  },
+                  {
+                    id: "dddd2222-bbbb-4000-8000-000000000002",
+                    originalId: "d1a2b3c4-0003-4000-8000-000000000003",
+                    eventId: "evt-dispute-opened-002",
+                    eventType: "dispute.opened",
+                    targetUrl: "https://example.com/hooks/predictify",
+                    payloadBase64: "eyJldmVudCI6ImRpc3B1dGUub3BlbmVkIn0=",
+                    signature: "sha256=ffffeeeeddddccccbbbbaaaa00009999888877776666555544443333222211110000",
+                    headers: null,
+                    attempts: 3,
+                    maxAttempts: 3,
+                    lastError: "connect ECONNREFUSED 192.0.2.1:443",
+                    failedAt: "2026-07-25T09:00:00.000Z",
+                    replayedAt: "2026-07-25T09:30:00.000Z",
+                    replayDeliveryId: "eeee3333-cccc-4000-8000-000000000004",
+                  },
+                ],
+                nextCursor: null,
+              },
+            },
+            emptyDlq: {
+              summary: "No dead-lettered deliveries",
+              value: { data: [], nextCursor: null },
+            },
+          },
+        },
+      },
+    },
+    401: {
+      description: "Missing or invalid JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    403: {
+      description: "Caller is not an admin",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/admin/webhooks/dlq/{id}/replay",
+  operationId: "replayWebhookDlq",
+  tags: ["Webhooks"],
+  summary: "Replay a dead-lettered webhook delivery (admin only)",
+  description:
+    "Re-enqueues a dead-lettered delivery as a fresh live delivery with `attempts = 0`. " +
+    "The original payload bytes and signature are preserved verbatim so the subscriber " +
+    "receives an identical signed request. Requires an admin JWT (`role: \"admin\"`).",
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid().describe("UUID of the DLQ row to replay") }),
+  },
+  responses: {
+    202: {
+      description: "Replay accepted — a fresh live delivery has been enqueued",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.object({
+              deliveryId: z.string().uuid().describe("ID of the newly-created live delivery"),
+              status: DeliveryStatus,
+              attempts: z.number().int().nonnegative().describe("Always 0 for a freshly replayed delivery"),
+            }),
+          }),
+          examples: {
+            replayAccepted: {
+              summary: "Successful replay — new delivery created",
+              value: {
+                data: {
+                  deliveryId: "ffff4444-dddd-4000-8000-000000000005",
+                  status: "pending",
+                  attempts: 0,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    400: {
+      description: "Malformed UUID in path",
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            badId: {
+              summary: "Non-UUID id parameter",
+              value: {
+                error: {
+                  code: "bad_request",
+                  message: "Invalid ID format",
+                  requestId: "req-xyz-789",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    401: {
+      description: "Missing or invalid JWT",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    403: {
+      description: "Caller is not an admin",
+      content: { "application/json": { schema: ErrorBody } },
+    },
+    404: {
+      description: "DLQ row not found",
+      content: {
+        "application/json": {
+          schema: ErrorBody,
+          examples: {
+            notFound: {
+              summary: "No DLQ row with the given id",
+              value: {
+                error: {
+                  code: "not_found",
+                  message: "DLQ row not found",
+                  requestId: "req-xyz-790",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    409: {
+      description: "DLQ row already replayed",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.object({ type: z.literal("already_replayed") }),
+            replayDeliveryId: z.string().uuid().nullable(),
+          }),
+          examples: {
+            alreadyReplayed: {
+              summary: "This DLQ row was already replayed — idempotency guard triggered",
+              value: {
+                error: { type: "already_replayed" },
+                replayDeliveryId: "ffff4444-dddd-4000-8000-000000000005",
+              },
+            },
+          },
+        },
+      },
     },
   },
 });
