@@ -131,11 +131,31 @@ export const predictions = pgTable("predictions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const marketComments = pgTable("market_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull().references(() => markets.id, {
+    onDelete: "cascade",
+  }),
+
+  authorId: uuid("author_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  authorAddress: text("author_address"),
+
+  body: text("body").notNull(),
+
+  moderationFlagged: boolean("moderation_flagged").notNull().default(false),
+  moderationReason: text("moderation_reason"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const indexerCursor = pgTable("indexer_cursor", {
   id: integer("id").primaryKey(),
   lastLedger: integer("last_ledger").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
 
 /**
  * Stores idempotency keys for POST/PATCH mutation replay.

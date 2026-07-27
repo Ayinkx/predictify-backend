@@ -180,6 +180,52 @@ registry.registerPath({
   },
 });
 
+// ── /api/markets/{id}/comments ───────────────────────────────────────────────
+
+const MarketComment = z
+  .object({
+    id: z.string().uuid(),
+    marketId: z.string(),
+    authorId: z.string().uuid().nullable(),
+    authorAddress: z.string().nullable(),
+    body: z.string(),
+    moderationFlagged: z.boolean(),
+    moderationReason: z.string().nullable(),
+    createdAt: z.string().datetime(),
+  })
+  .openapi("MarketComment");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/markets/{id}/comments",
+  tags: ["Markets"],
+  summary: "List comments for a market with cursor pagination",
+  request: {
+    params: z.object({ id: z.string() }),
+    query: z.object({
+      limit: z.coerce.number().int().positive().optional().default(20),
+      cursor: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Paginated comments list",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(MarketComment),
+            nextCursor: z.string().nullable(),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Validation error",
+      content: { "application/json": { schema: ValidationErrorBody } },
+    },
+  },
+});
+
 // ── /api/markets/{id}/disputes ───────────────────────────────────────────────
 
 const OpenDisputeRequest = z

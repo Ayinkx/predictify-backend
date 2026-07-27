@@ -1,17 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import { ZodError } from "zod";
 import { logger } from "../config/logger";
-import { AppError, ErrorCodes } from "../errors";
-
-function getRequestId(req: Request): string {
-  const id = (req as { id?: unknown }).id;
-  if (id == null) return "";
-  return String(id);
-}
 
 /*
  * Status → error code mapping:
- *   ZodError        → 400  validation_error  (details array surfaces field paths)
  *   err.status=400  → 400  request_failed    (generic bad request)
  *   err.status=404  → 404  not_found
  *   err.status=409  → 409  conflict

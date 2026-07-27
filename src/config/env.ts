@@ -24,6 +24,7 @@ const schema = z.object({
   ANON_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   ANON_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
   TRUST_PROXY: z.coerce.boolean().default(false),
+  ENABLE_DOCS: z.coerce.boolean().default(false),
 });
 
 export const env = schema.parse(process.env);

@@ -26,11 +26,11 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
-import { z } from "zod";
-import { getUserByAddress, getUserPredictions, getCurrentUserProfile } from "../services/userService";
+import { getCurrentUserProfile } from "../services/userService";
 import { requireAuthForbidden } from "../middleware/requireAuth";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { logger } from "../config/logger";
+import { getRequestId } from "../lib/requestContext";
 
 export const usersRouter = Router();
 
@@ -74,11 +74,6 @@ usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, r
     return next(e);
   }
 });
-
-usersRouter.get("/:address/predictions", async (req, res, next) => {
-  try {
-    const { address } = req.params;
-    const { status, cursor, limit = "20" } = req.query;
 
 // ── Route ─────────────────────────────────────────────────────────────────
 
@@ -126,28 +121,26 @@ usersRouter.get(
     const reqId = getRequestId();
 
     // ── 1. Input validation ──────────────────────────────────────────────
-    const parseResult = stellarAddressSchema.safeParse(req.params.stellarAddress);
-    if (!parseResult.success) {
+    const stellarAddress = req.params.stellarAddress as string;
+    if (!stellarAddress || stellarAddress.trim().length === 0) {
       logger.warn(
-        { reqId, stellarAddress: req.params.stellarAddress, issues: parseResult.error.issues },
+        { reqId, stellarAddress: req.params.stellarAddress },
         "user_profile_validation_failed",
       );
       return res.status(400).json({
         error: {
           code: "validation_error",
-          message: parseResult.error.issues[0]?.message ?? "invalid stellar address",
+          message: "invalid stellar address",
           requestId: reqId,
         },
       });
     }
 
-    const stellarAddress = parseResult.data;
-
     // ── 2. Service call ──────────────────────────────────────────────────
     try {
       logger.debug({ reqId, stellarAddress }, "user_profile_lookup");
 
-      const profile = await getUserProfile(stellarAddress);
+      const profile = await getCurrentUserProfile(stellarAddress);
 
       if (!profile) {
         logger.debug({ reqId, stellarAddress }, "user_profile_not_found");
@@ -161,7 +154,7 @@ usersRouter.get(
       }
 
       logger.debug(
-        { reqId, stellarAddress, predictionCount: profile.predictions.length },
+        { reqId, stellarAddress, predictionCount: profile.predictions?.length ?? 0 },
         "user_profile_found",
       );
 
@@ -169,7 +162,7 @@ usersRouter.get(
     } catch (err) {
       // Delegate to the global error handler which logs and returns a
       // standardised 500 envelope (including requestId).
-      next(err);
+      return next(err);
     }
   },
 );

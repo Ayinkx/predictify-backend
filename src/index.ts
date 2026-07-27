@@ -9,12 +9,11 @@ import { idempotency } from "./middleware/idempotency";
 import { healthRouter } from "./routes/health";
 import { authRouter } from "./routes/auth";
 import { marketsRouter } from "./routes/markets";
+import { commentsRouter } from "./routes/comments";
 import { usersRouter } from "./routes/users";
-import { authRouter } from "./routes/auth";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { createDocsRouter } from "./routes/docs";
-import { metricsMiddleware } from "./metrics/httpMetrics";
-import { idempotency } from "./middleware/idempotency";
+
 import { errorHandler } from "./middleware/errorHandler";
 import { requestContextStorage } from "./lib/requestContext";
 import { REQUEST_ID_HEADER } from "./lib/http";
@@ -81,8 +80,10 @@ export function createApp(): express.Express {
 
   app.use("/api/auth", authRouter);
   app.use("/api/markets", marketsRouter);
+  app.use("/api/markets", commentsRouter);
   app.use("/api/leaderboard", leaderboardRouter);
   app.use("/api/users", usersRouter);
+
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;
@@ -105,7 +106,7 @@ if (require.main === module) {
     .then(() => {
       app.listen(env.PORT, () => {
         logger.info({ port: env.PORT, env: env.NODE_ENV }, "predictify-backend listening");
-        if (docsEnabled) {
+        if (env.ENABLE_DOCS) {
           logger.info(`Swagger UI available at http://localhost:${env.PORT}/docs`);
         }
       });

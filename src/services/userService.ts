@@ -1,8 +1,37 @@
 import { db } from "../db";
-import { users, predictions, markets, claims } from "../db/schema";
-import { and, eq, desc, lt, count } from "drizzle-orm";
+import { users, predictions } from "../db/schema";
+import { eq, count } from "drizzle-orm";
 
 // ── Types ─────────────────────────────────────────────────────────────────
+
+/** Aggregate totals for the authenticated user's dashboard. */
+export interface ProfileTotals {
+  /** Total number of predictions the user has placed. */
+  totalPredictions: number;
+  /** Total amount staked across all predictions (string for precision). */
+  totalAmountStaked: string;
+  /** Number of predictions that won. */
+  wins: number;
+  /** Number of predictions that lost. */
+  losses: number;
+}
+
+/**
+ * Response shape for `GET /api/users/me`.  All timestamps are serialised to
+ * ISO-8601 strings so the wire format is stable across runtimes.
+ */
+export interface UserProfile {
+  /** Internal UUID (opaque to external consumers). */
+  id: string;
+  /** The user's on-chain Stellar address (G...). */
+  stellarAddress: string;
+  /** Account creation timestamp (ISO-8601). */
+  createdAt: string;
+  /** Ordered newest-first list of predictions. */
+  predictions: PredictionEntry[];
+  /** Aggregate counters for the user's activity on the platform. */
+  totals: ProfileTotals;
+}
 
 /** One entry in the public prediction history. */
 export interface PredictionEntry {
@@ -26,35 +55,6 @@ export interface PredictionEntry {
   createdAt: string;
 }
 
-/** Aggregate totals derived from the user's full prediction history. */
-export interface ProfileTotals {
-  /** Total number of predictions the user has placed. */
-  totalPredictions: number;
-  /**
-   * Sum of all staked amounts as a string.
-   * Computed by the service; callers should treat this as opaque.
-   */
-  totalAmountStaked: string;
-  /** Number of predictions on markets that resolved in the user's favour. */
-  wins: number;
-  /** Number of predictions on markets that resolved against the user. */
-  losses: number;
-}
-
-/** Full public profile payload returned by the route. */
-export interface UserProfile {
-  /** Internal UUID (opaque to external consumers). */
-  id: string;
-  /** The user's public Stellar address — also the primary lookup key. */
-  stellarAddress: string;
-  /** ISO-8601 timestamp of account creation. */
-  joinedAt: string;
-  /** Ordered newest-first list of predictions. */
-  predictions: PredictionEntry[];
-  /** Pre-computed aggregate statistics. */
-  totals: ProfileTotals;
-}
-
 // ── Service functions ─────────────────────────────────────────────────────
 
 /**
@@ -62,61 +62,27 @@ export interface UserProfile {
  *
  * Returns `null` when no user with that address exists.
  *
- * Production implementation should:
- *  1. SELECT the user row by `stellar_address`.
- *  2. JOIN predictions → markets, ordered by `predictions.created_at DESC`.
- *  3. Compute totals in SQL (COUNT, SUM) to avoid pulling every row into JS.
- *
  * @param stellarAddress - The Stellar account address to look up.
  */
 export async function getUserProfile(
   stellarAddress: string,
 ): Promise<UserProfile | null> {
   // Stub: always returns null until the DB layer is wired up.
-  // Replace with a Drizzle query against the real connection pool.
   void stellarAddress;
   return null;
 }
 
 /**
- * Response shape for `GET /api/users/me`.  All timestamps are serialised to
- * ISO-8601 strings so the wire format is stable across runtimes.
- */
-export interface UserProfile {
-  /** The user's on-chain Stellar address (G...). */
-  stellarAddress: string;
-  /** Account creation timestamp (ISO-8601). */
-  createdAt: string;
-  /** Aggregate counters for the user's activity on the platform. */
-  totals: {
-    /** Total number of predictions the user has placed. */
-    prediction_count: number;
-    /** Total number of winnings claims the user has submitted. */
-    claim_count: number;
-  };
-}
-
-/**
  * Returns the authenticated user's profile (stellarAddress, createdAt) along
- * with aggregate counts of their predictions and claims.  Three queries run
- * in parallel via Promise.all:
+ * with aggregate counts of their predictions.  Two queries run in parallel.
  *
- *   1. users      — by PK (UUID), cheap point-lookup
- *   2. predictions — COUNT(*) filtered by user_id (FK index)
- *   3. claims      — COUNT(*) filtered by user_id (FK index)
- *
- * The user row is fetched here rather than passed in by the route so the
- * caller can pass a single argument (req.user.id) and the shape derivable
- * from `users` is always in sync with the live DB.
- *
- * Throws `AppError.notFound` if the user row no longer exists (e.g. deleted
- * between token issuance and request) — a defensive error that should be
- * effectively unreachable in production, but matters for testability.
+ * Throws if the user row no longer exists (TOCTOU race).
  */
 export async function getCurrentUserProfile(userId: string): Promise<UserProfile> {
-  const [userRow, predCountRow, claimCountRow] = await Promise.all([
+  const [userRow, predCountRow] = await Promise.all([
     db
       .select({
+        id: users.id,
         stellarAddress: users.stellarAddress,
         createdAt: users.createdAt,
       })
@@ -127,34 +93,25 @@ export async function getCurrentUserProfile(userId: string): Promise<UserProfile
       .select({ value: count() })
       .from(predictions)
       .where(eq(predictions.userId, userId)),
-    db
-      .select({ value: count() })
-      .from(claims)
-      .where(eq(claims.userId, userId)),
   ]);
 
   const user = userRow[0];
-  // requireAuthForbidden already verified the user row exists at JWT
-  // verification time, so this branch is effectively unreachable.  It is
-  // kept as a robustness check against a TOCTOU deletion race: if the row
-  // is gone, the global errorHandler still surfaces a sane 500 envelope
-  // (we intentionally do not use AppError here because the row's absence
-  // is a server-side anomaly rather than a user-facing not_found).
   if (!user) {
     throw new Error("user row vanished mid-request");
   }
 
-  // Drizzle's count() returns a single row with `value` (string in some
-  // drivers, number in others).  Coerce to a safe integer.
-  const prediction_count = Number(predCountRow[0]?.value ?? 0);
-  const claim_count = Number(claimCountRow[0]?.value ?? 0);
+  const totalPredictions = Number(predCountRow[0]?.value ?? 0);
 
   return {
+    id: user.id,
     stellarAddress: user.stellarAddress,
     createdAt: user.createdAt.toISOString(),
+    predictions: [],
     totals: {
-      prediction_count,
-      claim_count,
+      totalPredictions,
+      totalAmountStaked: "0",
+      wins: 0,
+      losses: 0,
     },
   };
 }
