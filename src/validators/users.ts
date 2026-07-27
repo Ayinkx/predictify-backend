@@ -21,6 +21,38 @@ export const stellarAddressSchema = z
 export type StellarAddress = z.infer<typeof stellarAddressSchema>;
 
 // ---------------------------------------------------------------------------
+// GET /api/users
+// ---------------------------------------------------------------------------
+
+/**
+ * Query parameters for GET /api/users (cursor-paginated user list).
+ *
+ * Unknown query parameters are rejected via `.strict()` so the route
+ * boundary is explicit and malformed input is never silently ignored.
+ */
+export const listUsersQuerySchema = z
+  .object({
+    cursor: z
+      .string({
+        invalid_type_error: "cursor must be a string",
+      })
+      .trim()
+      .min(1, "cursor must be a non-empty string when provided")
+      .optional(),
+    limit: z.coerce
+      .number({
+        invalid_type_error: "limit must be a number",
+      })
+      .int("limit must be an integer")
+      .min(1, "limit must be between 1 and 100")
+      .max(100, "limit must be between 1 and 100")
+      .default(DEFAULT_PAGE_SIZE),
+  })
+  .strict();
+
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+
+// ---------------------------------------------------------------------------
 // GET /api/users/:address/predictions
 // ---------------------------------------------------------------------------
 

@@ -3,18 +3,26 @@
  *
  * Public user-facing routes:
  *
+ *   GET /api/users
+ *     Cursor-paginated list of registered users (DESC createdAt, DESC id).
+ *     Query: cursor?, limit (default 20, max 100)
+ *     Supports strong ETag / 304 conditional GET.
+ *
  *   GET /api/users/me
  *     Returns the authenticated user's own profile.  Requires a valid JWT
  *     (responds 403 on missing/invalid token via `requireAuthForbidden`).
+ *     Supports strong ETag / 304 conditional GET.
  *
  *   GET /api/users/:address/predictions
  *     Returns a cursor-paginated list of predictions for the given Stellar
  *     address.  The address must be a valid Stellar public key (G…).
  *     Query: status?, cursor?, limit (default 20, max 100)
+ *     Supports strong ETag / 304 conditional GET.
  *
  *   GET /api/users/:stellarAddress/profile
  *     Returns the public profile for any Stellar address.
  *     404 when no matching user row exists.
+ *     Supports strong ETag / 304 conditional GET.
  *
  * All routes are wrapped by `accessLog` which:
  *   - Resolves / generates a correlation ID (X-Correlation-Id → X-Request-Id
@@ -30,14 +38,19 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
-import { getCurrentUserProfile } from "../services/userService";
-import { z } from "zod";
-import { getUserByAddress, getUserPredictions, getCurrentUserProfile, getUserProfile, listUsers } from "../services/userService";
+import {
+  getUserByAddress,
+  getUserPredictions,
+  getCurrentUserProfile,
+  getUserProfile,
+  listUsers,
+} from "../services/userService";
 import { requireAuthForbidden } from "../middleware/requireAuth";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { accessLog } from "../middleware/accessLog";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { conditionalGet } from "../middleware/etag";
+import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
@@ -45,6 +58,7 @@ import { RouteErrorFactory } from "../errors";
 import { requestTimeout } from "../middleware/timeout";
 import { usersMetricsMiddleware } from "../metrics/usersMetrics";
 import {
+  listUsersQuerySchema,
   userPredictionsParamsSchema,
   userPredictionsQuerySchema,
   userProfileParamsSchema,
@@ -84,9 +98,10 @@ usersRouter.use(requestTimeout(15000)); // 15 seconds timeout
 // ---------------------------------------------------------------------------
 usersRouter.use(usersMetricsMiddleware);
 
+// ---------------------------------------------------------------------------
+// GET /api/users
+// ---------------------------------------------------------------------------
 /**
- * GET /api/users
- *
  * Returns a cursor-paginated list of all registered users, sorted newest-first
  * (DESC createdAt, DESC id).  The composite sort key `(createdAt, id)` is
  * stable: even when two users are created in the same millisecond the UUID
@@ -104,21 +119,21 @@ usersRouter.use(usersMetricsMiddleware);
  *   fetch the next page.  A missing, tampered, or version-mismatched cursor is
  *   silently treated as absent (restart from page one) rather than 500-ing.
  *
+ * Caching:
+ *   Strong ETag on the page payload; clients may revalidate with If-None-Match
+ *   and receive 304 Not Modified when the page is unchanged.
+ *
  * Errors:
  *   400 validation_error — query params fail the zod schema
  */
-usersRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
-  const reqId = getRequestId();
+usersRouter.get("/", usersRateLimit, async (req: Request, res: Response, next: NextFunction) => {
+  const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
+  const reqId = correlationId;
 
   try {
-    const querySchema = z.object({
-      cursor: z.string().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_PAGE_SIZE),
-    });
-
-    const queryParse = querySchema.safeParse(req.query);
+    const queryParse = listUsersQuerySchema.safeParse(req.query);
     if (!queryParse.success) {
-      logger.warn({ reqId, issues: queryParse.error.issues }, "users_list_invalid_query");
+      logger.warn({ reqId, correlationId, issues: queryParse.error.issues }, "users_list_invalid_query");
       return res.status(400).json({
         error: {
           code: "validation_error",
@@ -131,51 +146,62 @@ usersRouter.get("/", async (req: Request, res: Response, next: NextFunction) => 
     const { cursor, limit: rawLimit } = queryParse.data;
     const limit = clampLimit(rawLimit);
 
-    logger.debug({ reqId, limit, hasCursor: !!cursor }, "users_list_request");
+    logger.debug({ reqId, correlationId, limit, hasCursor: !!cursor }, "users_list_request");
 
     const page = await listUsers({ cursor, limit });
 
     logger.info(
-      { reqId, count: page.data.length, hasNext: !!page.nextCursor },
+      { reqId, correlationId, count: page.data.length, hasNext: !!page.nextCursor },
       "users_list_served",
     );
 
-    return res.json({ data: page.data, nextCursor: page.nextCursor });
-  } catch (e) {
-    return next(e);
-  }
-});
-
-// ── Route ─────────────────────────────────────────────────────────────────
-usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, res, next) => {
-  const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
-  try {
-    const userId = req.user!.id;
-    const result = await getCurrentUserProfile(userId);
-
-    if (!result.ok) {
-      throw result.error;
-    }
-
-    const profile = result.value;
-    logger.info(
-      {
-        correlationId,
-        userId,
-        stellarAddress: profile.stellarAddress,
-        ...profile.totals,
-      },
-      "user_me_profile_loaded",
-    );
-
-    // Strong ETag on the profile payload; 304 if client already has it.
-    const responsePayload = { data: profile };
+    // Strong ETag on the page payload; 304 if client already has it.
+    const responsePayload = { data: page.data, nextCursor: page.nextCursor };
     if (conditionalGet(responsePayload, req, res)) return;
     return res.json(responsePayload);
   } catch (e) {
     return next(e);
   }
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/users/me
+// ---------------------------------------------------------------------------
+usersRouter.get(
+  "/me",
+  requireAuthForbidden,
+  usersRateLimit,
+  async (req: AuthenticatedRequest, res, next) => {
+    const correlationId = res.locals.correlationId as string;
+
+    try {
+      const userId = req.user!.id;
+      const result = await getCurrentUserProfile(userId);
+
+      if (!result.ok) {
+        throw result.error;
+      }
+
+      const profile = result.value;
+      logger.info(
+        {
+          correlationId,
+          userId,
+          stellarAddress: profile.stellarAddress,
+          ...profile.totals,
+        },
+        "user_me_profile_loaded",
+      );
+
+      // Strong ETag on the profile payload; 304 if client already has it.
+      const responsePayload = { data: profile };
+      if (conditionalGet(responsePayload, req, res)) return;
+      return res.json(responsePayload);
+    } catch (e) {
+      return next(e);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // GET /api/users/:address/predictions
@@ -196,6 +222,10 @@ usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, r
  *   fetch the next page.  Cursors are versioned; a stale cursor from before a
  *   schema migration is safely rejected and restarts from page one rather than
  *   silently returning a wrong offset.
+ *
+ * Caching:
+ *   Strong ETag on the page payload; clients may revalidate with If-None-Match
+ *   and receive 304 Not Modified when the page is unchanged.
  *
  * Errors:
  *   400 invalid_address  — path param is not a valid G… Stellar address
