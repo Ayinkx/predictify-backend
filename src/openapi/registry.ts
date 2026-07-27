@@ -425,6 +425,35 @@ registry.registerPath({
   },
 });
 
+// ── /api/health/version ──────────────────────────────────────────────────────
+
+const HealthVersionResponse = z
+  .object({
+    version: z.string(),
+    commitSha: z.string(),
+    correlationId: z.string(),
+    checkedAt: z.string().datetime(),
+  })
+  .openapi("HealthVersionResponse");
+
+registry.registerPath({
+  method: "get",
+  path: "/api/health/version",
+  operationId: "healthVersion",
+  tags: ["Health"],
+  summary: "Application version and build info",
+  description:
+    "Returns the application version (from package.json) and the current Git " +
+    "commit SHA (from GIT_COMMIT_SHA or VERCEL_GIT_COMMIT_SHA env vars, " +
+    "falling back to 'unknown'). No authentication required.",
+  responses: {
+    200: {
+      description: "Version information",
+      content: { "application/json": { schema: HealthVersionResponse } },
+    },
+  },
+});
+
 // ── /api/markets ─────────────────────────────────────────────────────────────
 
 const Market = z

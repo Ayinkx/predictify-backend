@@ -12,6 +12,7 @@ import { healthRouter } from "./routes/health";
 import healthzDependenciesRouter from "./routes/healthz/dependencies";
 import { createReadyRouter } from "./routes/health/ready";
 import { dependenciesRouter } from "./routes/health/dependencies";
+import { versionRouter } from "./routes/health/version";
 import { redisConnection } from "./queue";
 import { authRouter } from "./routes/auth";
 import { tagsRouter } from "./routes/tags";
@@ -127,6 +128,7 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use("/healthz/dependencies", healthzDependenciesRouter);
   app.use("/api/health/ready", createReadyRouter({ db, redis: redisConnection }));
   app.use("/api/health/dependencies", dependenciesRouter);
+  app.use("/api/health/version", versionRouter);
   app.use("/api/indexer", indexerHealthRouter);
 
   const mutationMethods = ["POST", "PATCH"] as const;
