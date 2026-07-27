@@ -18,6 +18,8 @@ import { authRouter } from "./routes/auth";
 import { tagsRouter } from "./routes/tags";
 import { auditRouter } from "./routes/audit";
 import { marketsRouter } from "./routes/markets";
+import { commentsRouter } from "./routes/comments";
+import { usersRouter } from "./routes/users";
 import { predictionsRouter } from "./routes/predictions";
 import { usersRouter } from "./routes/users";
 import { usersHealthRouter } from "./routes/users/health";
@@ -29,6 +31,7 @@ import { adminNotesRouter } from "./routes/admin/users/notes";
 import { leaderboardRouter } from "./routes/leaderboard";
 import { globalLeaderboardRouter } from "./routes/leaderboard/global";
 import { createDocsRouter } from "./routes/docs";
+
 import { sessionsRouter } from "./routes/me/sessions";
 import { notificationsRouter } from "./routes/notifications";
 import { socialRouter } from "./routes/social";
@@ -142,6 +145,7 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use("/api/tags", tagsRouter);
   app.use("/api/audit", auditRouter);
   app.use("/api/markets", marketsRouter);
+  app.use("/api/markets", commentsRouter);
   app.use("/api/predictions", predictionsRouter);
   app.use("/api/leaderboard", leaderboardRouter);
   app.use("/api/leaderboard/global", globalLeaderboardRouter);
@@ -167,6 +171,7 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
   app.use("/api/admin/schema-versions", adminSchemaVersionsRouter);
   app.use("/api/admin/rate-limit", adminRateLimitInspectRouter);
   app.use("/api/reports", reportsRouter);
+
 
   app.get("/metrics", async (req, res) => {
     const metricsAuthToken = process.env.METRICS_AUTH_TOKEN;
@@ -204,6 +209,9 @@ if (require.main === module) {
 
       app.listen(env.PORT, () => {
         logger.info({ port: env.PORT, env: env.NODE_ENV }, "predictify-backend listening");
+        if (env.ENABLE_DOCS) {
+          logger.info(`Swagger UI available at http://localhost:${env.PORT}/docs`);
+        }
         logger.info(`Swagger UI available at http://localhost:${env.PORT}/docs`);
       });
 

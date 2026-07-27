@@ -253,6 +253,25 @@ export const adminAuditLog = pgTable("admin_audit_log", {
     .defaultNow(),
 });
 
+export const marketComments = pgTable("market_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  marketId: text("market_id").notNull().references(() => markets.id, {
+    onDelete: "cascade",
+  }),
+
+  authorId: uuid("author_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  authorAddress: text("author_address"),
+
+  body: text("body").notNull(),
+
+  moderationFlagged: boolean("moderation_flagged").notNull().default(false),
+  moderationReason: text("moderation_reason"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const indexerCursor = pgTable("indexer_cursor", {
   id: integer("id").primaryKey(),
   lastLedger: integer("last_ledger").notNull(),
@@ -261,6 +280,11 @@ export const indexerCursor = pgTable("indexer_cursor", {
     .defaultNow(),
 });
 
+
+/**
+ * Stores idempotency keys for POST/PATCH mutation replay.
+ * Rows are purged after 24 h by the sweeper job.
+ */
 export const contractEvents = pgTable("contract_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   contractId: text("contract_id").notNull(),

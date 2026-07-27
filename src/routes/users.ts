@@ -30,6 +30,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
+import { getCurrentUserProfile } from "../services/userService";
 import { z } from "zod";
 import { getUserByAddress, getUserPredictions, getCurrentUserProfile, getUserProfile, listUsers } from "../services/userService";
 import { requireAuthForbidden } from "../middleware/requireAuth";
@@ -145,6 +146,7 @@ usersRouter.get("/", async (req: Request, res: Response, next: NextFunction) => 
   }
 });
 
+// ── Route ─────────────────────────────────────────────────────────────────
 usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, res, next) => {
   const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
   try {
@@ -226,6 +228,23 @@ usersRouter.get(
       }
       const { address } = paramsParse.data;
 
+    // ── 1. Input validation ──────────────────────────────────────────────
+    const stellarAddress = req.params.stellarAddress as string;
+    if (!stellarAddress || stellarAddress.trim().length === 0) {
+      logger.warn(
+        { reqId, stellarAddress: req.params.stellarAddress },
+        "user_profile_validation_failed",
+      );
+      return res.status(400).json({
+        error: {
+          code: "validation_error",
+          message: "invalid stellar address",
+          requestId: reqId,
+        },
+      });
+    }
+
+    // ── 2. Service call ──────────────────────────────────────────────────
       // Validate and coerce query parameters with zod.
       const queryParse = userPredictionsQuerySchema.safeParse(req.query);
       if (!queryParse.success) {
@@ -315,13 +334,15 @@ usersRouter.get(
     try {
       logger.debug({ correlationId, reqId, stellarAddress }, "user_profile_lookup");
 
-      const profile = await getUserProfile(stellarAddress);
+      const profile = await getCurrentUserProfile(stellarAddress);
 
       if (!profile) {
         logger.debug({ correlationId, reqId, stellarAddress }, "user_profile_not_found");
         return next(RouteErrorFactory.notFound("no user found with that stellar address"));
       }
 
+      logger.debug(
+        { reqId, stellarAddress, predictionCount: profile.predictions?.length ?? 0 },
       logger.info(
         {
           correlationId,
@@ -337,6 +358,8 @@ usersRouter.get(
       if (conditionalGet(responsePayload, req, res)) return;
       return res.json(responsePayload);
     } catch (err) {
+      // Delegate to the global error handler which logs and returns a
+      // standardised 500 envelope (including requestId).
       return next(err);
     }
   },
