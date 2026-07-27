@@ -57,6 +57,7 @@ import { forceResolveRouter } from "./routes/admin/force-resolve";
 import { quotaRequestsRouter } from "./routes/quota/requests";
 import { startSlowQueryAlerter, stopSlowQueryAlerter } from "./workers/slowQueryAlerter";
 import { reportsRouter } from "./routes/reports";
+import { gracefulShutdown } from "./lifecycle/shutdown";
 
 const docsEnabled = env.NODE_ENV !== "production" || process.env.ENABLE_DOCS === "true";
 
@@ -191,21 +192,6 @@ if (require.main === module) {
   let webhookWorker: WebhookWorker | null = null;
   let probeHandle: ReturnType<typeof setInterval> | null = null;
 
-  const stopWorkers = async (): Promise<void> => {
-    logger.info("Stopping queue workers");
-    stopSlowQueryAlerter();
-    stopIndexerHealthProbe();
-    if (probeHandle) {
-      clearInterval(probeHandle);
-      probeHandle = null;
-    }
-    await Promise.all([
-      webhookWorker ? webhookWorker.stop() : Promise.resolve(),
-      marketResolverWorker.stop(),
-      backupVerificationWorker.stop(),
-      reconciliationWorker.stop(),
-    ]);
-  };
 
   connectWithRetry()
     .then(() => {
@@ -229,7 +215,7 @@ if (require.main === module) {
           process.exit(1);
         }, 5000).unref();
 
-        await stopWorkers();
+        // Workers handled by gracefulShutdown
         stopScheduler();
         await closeDb();
         clearTimeout(forceExit);
@@ -243,7 +229,7 @@ if (require.main === module) {
           process.exit(1);
         }, 5000).unref();
 
-        await stopWorkers();
+        // Workers handled by gracefulShutdown
         stopScheduler();
         await closeDb();
         clearTimeout(forceExit);
