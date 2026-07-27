@@ -13,6 +13,7 @@ import { RouteErrorFactory } from "../errors";
 import { conditionalGet } from "../middleware/etag";
 import { accessLog } from "../middleware/accessLog";
 import { requestTimeout } from "../middleware/timeout";
+import { loginRateLimit } from "../middleware/loginRateLimit";
 import { authHealthRouter } from "./auth/health";
 
 export const authRouter = Router();
@@ -103,7 +104,7 @@ const challengeBodySchema = z.object({
   stellarAddress: z.string().refine((addr) => StrKey.isValidEd25519PublicKey(addr), { message: "Invalid Stellar ed25519 public key" }),
 });
 
-authRouter.post("/challenge", async (req, res, next) => {
+authRouter.post("/challenge", loginRateLimit, async (req, res, next) => {
   try {
     const parsed = challengeBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -133,7 +134,7 @@ const verifyBodySchema = z.object({
   signature: z.string().refine((addr) => StrKey.isValidEd25519PublicKey(addr), { message: "Invalid Stellar ed25519 public key" }),
 });
 
-authRouter.post("/verify", async (req, res, next) => {
+authRouter.post("/verify", loginRateLimit, async (req, res, next) => {
   try {
     const parsed = verifyBodySchema.safeParse(req.body);
     if (!parsed.success) {
