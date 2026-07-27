@@ -82,6 +82,8 @@ current — this cuts bandwidth for clients that poll frequently. Implemented in
 Currently applied to:
 
 - `GET /api/markets` / `GET /api/markets/:id`
+- `GET /api/users` / `GET /api/users/me` / `GET /api/users/:address/predictions` /
+  `GET /api/users/:stellarAddress/profile`
 - `GET /api/auth/*` (session-derived responses)
 - `GET /api/indexer/health` — cursor/chain-tip lag rarely changes between polls, so
   monitoring/orchestrator probes that hit this endpoint on a tight interval get a

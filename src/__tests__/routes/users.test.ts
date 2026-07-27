@@ -40,6 +40,11 @@ jest.mock("../../metrics/usersMetrics", () => ({
   usersMetricsMiddleware: (_req: any, _res: any, next: any) => next(),
 }));
 
+// Rate limit — no-op in tests
+jest.mock("../../middleware/rateLimit", () => ({
+  createPerUserRateLimiter: () => (_req: any, _res: any, next: any) => next(),
+}));
+
 // User service
 jest.mock("../../services/userService");
 import * as userService from "../../services/userService";
@@ -101,6 +106,86 @@ const MOCK_PREDICTION_PAGE = {
   ],
   nextCursor: null,
 };
+
+// ---------------------------------------------------------------------------
+// GET /api/users — ETag + 304 (list)
+// ---------------------------------------------------------------------------
+
+const MOCK_USERS_PAGE = {
+  data: [
+    {
+      id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      stellarAddress: VALID_ADDRESS,
+      createdAt: "2026-06-27T12:00:00.000Z",
+    },
+  ],
+  nextCursor: null as string | null,
+};
+
+describe("GET /api/users", () => {
+  let app: express.Application;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    app = buildApp();
+  });
+
+  it("returns 200 with ETag and Cache-Control on first request", async () => {
+    (userService.listUsers as any).mockResolvedValueOnce(MOCK_USERS_PAGE);
+
+    const res = await request(app).get("/api/users");
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(MOCK_USERS_PAGE.data);
+    expect(res.body.nextCursor).toBeNull();
+    expect(res.headers["etag"]).toMatch(/^"[a-f0-9]{64}"$/);
+    expect(res.headers["cache-control"]).toBe("no-cache");
+  });
+
+  it("returns 304 when If-None-Match matches current ETag", async () => {
+    (userService.listUsers as any).mockResolvedValueOnce(MOCK_USERS_PAGE);
+
+    const first = await request(app).get("/api/users");
+    const etag = first.headers["etag"] as string;
+
+    (userService.listUsers as any).mockResolvedValueOnce(MOCK_USERS_PAGE);
+
+    const second = await request(app).get("/api/users").set("If-None-Match", etag);
+
+    expect(second.status).toBe(304);
+    expect(second.text).toBe("");
+  });
+
+  it("returns 200 when If-None-Match does not match", async () => {
+    (userService.listUsers as any).mockResolvedValueOnce(MOCK_USERS_PAGE);
+
+    const res = await request(app)
+      .get("/api/users")
+      .set("If-None-Match", '"000000stale000000"');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(MOCK_USERS_PAGE.data);
+  });
+
+  it("ETag changes when list payload changes", async () => {
+    (userService.listUsers as any).mockResolvedValueOnce(MOCK_USERS_PAGE);
+    const first = await request(app).get("/api/users");
+
+    (userService.listUsers as any).mockResolvedValueOnce({
+      data: [],
+      nextCursor: null,
+    });
+    const second = await request(app).get("/api/users");
+
+    expect(first.headers["etag"]).not.toBe(second.headers["etag"]);
+  });
+
+  it("returns 400 for invalid limit", async () => {
+    const res = await request(app).get("/api/users").query({ limit: 0 });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("validation_error");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // GET /api/users/me — ETag + 304

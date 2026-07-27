@@ -78,6 +78,25 @@ jest.mock("../src/db/client", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// 3b. Middleware that would otherwise pull in heavy deps — no-op in tests.
+// ---------------------------------------------------------------------------
+jest.mock("../src/middleware/rateLimit", () => ({
+  createPerUserRateLimiter: () => (_req: any, _res: any, next: any) => next(),
+}));
+
+jest.mock("../src/middleware/timeout", () => ({
+  requestTimeout: () => (_req: any, _res: any, next: any) => next(),
+}));
+
+jest.mock("../src/metrics/usersMetrics", () => ({
+  usersMetricsMiddleware: (_req: any, _res: any, next: any) => next(),
+}));
+
+jest.mock("../src/middleware/accessLog", () => ({
+  accessLog: (_req: any, _res: any, next: any) => next(),
+}));
+
+// ---------------------------------------------------------------------------
 // 4. Mock userService so individual tests control listUsers output.
 // ---------------------------------------------------------------------------
 jest.mock("../src/services/userService", () => ({
@@ -108,6 +127,7 @@ const mockListUsers = listUsers as jest.MockedFunction<typeof listUsers>;
 function makeApp(): express.Express {
   const app = express();
   app.use(express.json());
+  app.set("etag", false);
   app.use("/api/users", usersRouter);
   app.use(errorHandler);
   return app;
@@ -334,6 +354,43 @@ describe("GET /api/users", () => {
       const res = await request(app).get(usersListUrl());
 
       expect(res.status).toBe(500);
+    });
+  });
+
+  // ── ETag / conditional GET ─────────────────────────────────────────────────
+
+  describe("ETag / conditional GET", () => {
+    it("returns strong ETag and Cache-Control: no-cache on 200", async () => {
+      mockListUsers.mockResolvedValueOnce({
+        data: [USER_1],
+        nextCursor: null,
+      });
+
+      const res = await request(app).get(usersListUrl());
+
+      expect(res.status).toBe(200);
+      expect(res.headers["etag"]).toMatch(/^"[a-f0-9]{64}"$/);
+      expect(res.headers["cache-control"]).toBe("no-cache");
+    });
+
+    it("returns 304 when If-None-Match matches", async () => {
+      mockListUsers.mockResolvedValueOnce({
+        data: [USER_1],
+        nextCursor: null,
+      });
+      const first = await request(app).get(usersListUrl());
+      const etag = first.headers["etag"] as string;
+
+      mockListUsers.mockResolvedValueOnce({
+        data: [USER_1],
+        nextCursor: null,
+      });
+      const second = await request(app)
+        .get(usersListUrl())
+        .set("If-None-Match", etag);
+
+      expect(second.status).toBe(304);
+      expect(second.text).toBe("");
     });
   });
 });

@@ -1468,7 +1468,9 @@ registry.registerPath({
     "Returns a cursor-paginated list of registered users sorted newest-first " +
     "(DESC createdAt, DESC id).  Pass the opaque `nextCursor` value from one " +
     "response as the `cursor` query parameter of the next request to advance " +
-    "through pages.  A null `nextCursor` indicates the last page.",
+    "through pages.  A null `nextCursor` indicates the last page. " +
+    "Supports strong ETag / conditional GET: send the ETag back as If-None-Match " +
+    "on subsequent requests; if the page is unchanged the server responds 304 Not Modified (no body).",
   request: {
     query: z.object({
       cursor: z.string().optional().openapi({
@@ -1483,10 +1485,26 @@ registry.registerPath({
         .default(20)
         .openapi({ description: "Page size (1–100, default 20)." }),
     }),
+    headers: z.object({
+      "if-none-match": z.string().optional().openapi({
+        description: "ETag from a previous 200 response. Triggers 304 when the page is unchanged.",
+        param: { name: "If-None-Match", in: "header" },
+      }),
+    }),
   },
   responses: {
     200: {
       description: "Paginated list of users",
+      headers: {
+        ETag: {
+          description: "Strong ETag (SHA-256) of the response body.",
+          schema: { type: "string" },
+        },
+        "Cache-Control": {
+          description: "Always no-cache so clients revalidate before reuse.",
+          schema: { type: "string", example: "no-cache" },
+        },
+      },
       content: {
         "application/json": {
           schema: z.object({
@@ -1506,6 +1524,9 @@ registry.registerPath({
         },
       },
     },
+    304: {
+      description: "Not Modified — page unchanged since the ETag in If-None-Match.",
+    },
     400: {
       description: "Validation error",
       content: { "application/json": { schema: ValidationErrorBody } },
@@ -1519,10 +1540,32 @@ registry.registerPath({
   operationId: "getCurrentUser",
   tags: ["Users"],
   summary: "Get the authenticated user\u2019s profile",
+  description:
+    "Returns the authenticated user's profile. Supports strong ETag / conditional GET: " +
+    "send the ETag back as If-None-Match on subsequent requests; if the profile is unchanged " +
+    "the server responds 304 Not Modified (no body).",
   security: [{ bearerAuth: [] }],
+  request: {
+    headers: z.object({
+      "if-none-match": z.string().optional().openapi({
+        description: "ETag from a previous 200 response. Triggers 304 when content is unchanged.",
+        param: { name: "If-None-Match", in: "header" },
+      }),
+    }),
+  },
   responses: {
     200: {
       description: "Current user profile",
+      headers: {
+        ETag: {
+          description: "Strong ETag (SHA-256) of the response body.",
+          schema: { type: "string" },
+        },
+        "Cache-Control": {
+          description: "Always no-cache so clients revalidate before reuse.",
+          schema: { type: "string", example: "no-cache" },
+        },
+      },
       content: {
         "application/json": {
           schema: z.object({ data: CurrentUserProfile }),
@@ -1542,6 +1585,9 @@ registry.registerPath({
           },
         },
       },
+    },
+    304: {
+      description: "Not Modified — profile unchanged since the ETag in If-None-Match.",
     },
     401: {
       description: "Unauthorized",
@@ -1570,6 +1616,9 @@ registry.registerPath({
   operationId: "getUserPredictions",
   tags: ["Users"],
   summary: "List predictions for a Stellar address",
+  description:
+    "Returns a cursor-paginated list of predictions. Supports strong ETag / conditional GET: " +
+    "send the ETag back as If-None-Match; if the page is unchanged the server responds 304 Not Modified (no body).",
   request: {
     params: z.object({ address: z.string() }),
     query: z.object({
@@ -1577,10 +1626,26 @@ registry.registerPath({
       cursor: z.string().optional(),
       limit: z.coerce.number().int().min(1).max(100).default(20),
     }),
+    headers: z.object({
+      "if-none-match": z.string().optional().openapi({
+        description: "ETag from a previous 200 response. Triggers 304 when the page is unchanged.",
+        param: { name: "If-None-Match", in: "header" },
+      }),
+    }),
   },
   responses: {
     200: {
       description: "Paginated predictions",
+      headers: {
+        ETag: {
+          description: "Strong ETag (SHA-256) of the response body.",
+          schema: { type: "string" },
+        },
+        "Cache-Control": {
+          description: "Always no-cache so clients revalidate before reuse.",
+          schema: { type: "string", example: "no-cache" },
+        },
+      },
       content: {
         "application/json": {
           schema: z.object({
@@ -1604,6 +1669,9 @@ registry.registerPath({
           },
         },
       },
+    },
+    304: {
+      description: "Not Modified — predictions page unchanged since the ETag in If-None-Match.",
     },
     400: {
       description: "Invalid address",
@@ -1650,10 +1718,31 @@ registry.registerPath({
   operationId: "getUserProfile",
   tags: ["Users"],
   summary: "Get a user\u2019s public profile",
-  request: { params: z.object({ stellarAddress: z.string() }) },
+  description:
+    "Returns a public user profile. Supports strong ETag / conditional GET: " +
+    "send the ETag back as If-None-Match; if the profile is unchanged the server responds 304 Not Modified (no body).",
+  request: {
+    params: z.object({ stellarAddress: z.string() }),
+    headers: z.object({
+      "if-none-match": z.string().optional().openapi({
+        description: "ETag from a previous 200 response. Triggers 304 when the profile is unchanged.",
+        param: { name: "If-None-Match", in: "header" },
+      }),
+    }),
+  },
   responses: {
     200: {
       description: "User profile",
+      headers: {
+        ETag: {
+          description: "Strong ETag (SHA-256) of the response body.",
+          schema: { type: "string" },
+        },
+        "Cache-Control": {
+          description: "Always no-cache so clients revalidate before reuse.",
+          schema: { type: "string", example: "no-cache" },
+        },
+      },
       content: {
         "application/json": {
           schema: z.object({ data: UserProfile }),
