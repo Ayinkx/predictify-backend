@@ -30,8 +30,8 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { logger } from "../../config/logger";
 import { requireAdmin } from "../../middleware/requireAdmin";
-import { REQUEST_ID_HEADER } from "../../lib/http";
-import { getRequestId } from "../../lib/requestContext";
+import { CORRELATION_ID_HEADER } from "../../lib/http";
+import { getCorrelationId } from "../../middleware/correlation";
 import { indexerService } from "../../services/indexerService";
 import { adminReindexTotal } from "../../metrics/registry";
 import { db } from "../../db";
@@ -57,10 +57,10 @@ export interface AdminReindexRouterOptions {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Resolves the request ID from AsyncLocalStorage context, then req.id fallback. */
+/** Resolves the correlation ID from AsyncLocalStorage context, then req.id fallback. */
 function resolveRequestId(req: { id?: unknown }): string {
   return (
-    getRequestId() ??
+    getCorrelationId() ??
     (typeof req.id === "string" ? req.id : "") ??
     ""
   );
@@ -116,17 +116,17 @@ export function createAdminReindexRouter(
    */
   router.post("", async (req, res, next) => {
     try {
-      const requestId = resolveRequestId(req);
+      const correlationId = resolveRequestId(req);
 
       // ── Input validation ─────────────────────────────────────────────────
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) {
-        res.setHeader(REQUEST_ID_HEADER, requestId);
+        res.setHeader(CORRELATION_ID_HEADER, correlationId);
         res.status(400).json({
           error: {
             code: "validation_error",
             details: parsed.error.issues,
-            requestId,
+            correlationId,
           },
         });
         return;
@@ -149,7 +149,7 @@ export function createAdminReindexRouter(
         action: "admin.reindex",
         walletAddress: req.adminAddress ?? null,
         ip,
-        correlationId: requestId,
+        correlationId,
         rateLimitContext: null,
       });
 
@@ -157,7 +157,7 @@ export function createAdminReindexRouter(
       adminReindexTotal.inc();
       logger.info(
         {
-          requestId,
+          correlationId,
           adminAddress: req.adminAddress,
           from,
           to,
@@ -166,9 +166,10 @@ export function createAdminReindexRouter(
       );
 
       // ── Response ──────────────────────────────────────────────────────────
-      res.setHeader(REQUEST_ID_HEADER, requestId);
+      res.setHeader(CORRELATION_ID_HEADER, correlationId);
       res.status(200).json({
         data: { from, to },
+        correlationId,
       });
     } catch (error) {
       next(error);

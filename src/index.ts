@@ -6,6 +6,7 @@ import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { metricsMiddleware } from "./metrics/httpMetrics";
 import { metricsHistogramMiddleware } from "./middleware/metricsHistogram";
+import { correlationMiddleware } from "./middleware/correlation";
 import { idempotency } from "./middleware/idempotency";
 import { defaultBodySizeLimitMiddleware, webhookBodySizeLimitMiddleware } from "./middleware/bodySize";
 import { healthRouter } from "./routes/health";
@@ -121,6 +122,11 @@ export function createApp(_options: CreateAppOptions = {}): express.Express {
       requestContextStorage.run({ requestId }, next);
     },
   );
+
+  // Resolve, echo, and propagate X-Correlation-Id for every request.
+  // Runs after the ALS context is established so correlationMiddleware can
+  // extend the existing store with the `correlationId` field.
+  app.use(correlationMiddleware);
 
   app.use("/api/admin/webhooks", webhookBodySizeLimitMiddleware);
   app.use(defaultBodySizeLimitMiddleware);
