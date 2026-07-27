@@ -24,6 +24,7 @@ export const REQUEST_ID_HEADER = "x-request-id";
  */
 export async function fetchWithRequestId(
   input: string | URL | globalThis.Request,
+  input: string | URL | Request,
   init?: RequestInit,
 ): Promise<Response> {
   const requestId = getRequestId();

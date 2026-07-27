@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { envSchema, formatEnvErrors } from "./env-schema";
 
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -26,6 +26,15 @@ const schema = z.object({
   TRUST_PROXY: z.coerce.boolean().default(false),
   ENABLE_DOCS: z.coerce.boolean().default(false),
 });
+const parsed = envSchema.safeParse(process.env);
 
-export const env = schema.parse(process.env);
-export type Env = z.infer<typeof schema>;
+if (!parsed.success) {
+  if (process.env.NODE_ENV !== "test") {
+    console.error("❌ Invalid environment configuration:\n" + formatEnvErrors(parsed.error));
+    process.exit(1);
+  }
+}
+
+export const env = parsed.success
+  ? parsed.data
+  : ({} as ReturnType<typeof envSchema.parse>);
