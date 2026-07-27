@@ -20,10 +20,17 @@
  * Error responses follow the project envelope: `{ error: { code, ... } }`
  */
 
-import rateLimit, { type Options, type RateLimitRequestHandler } from "express-rate-limit";
+import rateLimit, {
+  type Options,
+  type RateLimitRequestHandler,
+} from "express-rate-limit";
 import type { NextFunction, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { createAuditLog, type RateLimitContext } from "../services/auditService";
+import {
+  createAuditLog,
+  type RateLimitContext,
+} from "../services/auditService";
+import { logger } from "../config/logger";
 import { env } from "../config/env";
 
 declare global {
@@ -141,7 +148,9 @@ function getAuthenticatedUserKey(req: Request): string | undefined {
   return `user:${identity.trim()}`;
 }
 
-export function createRateLimiter(options: Partial<Options> = {}): RateLimitRequestHandler {
+export function createRateLimiter(
+  options: Partial<Options> = {},
+): RateLimitRequestHandler {
   const windowMs = options.windowMs ?? 15 * 60 * 1000;
   const configuredLimit = options.limit;
   const limit = typeof configuredLimit === "number" ? configuredLimit : 100;
@@ -196,7 +205,10 @@ export function createPerUserTokenBucketLimiter(
   options: TokenBucketRateLimitOptions = {},
 ): RateLimitRequestHandler {
   const capacity = Math.max(1, Math.floor(options.capacity ?? 60));
-  const refillWindowMs = Math.max(1, Math.floor(options.refillWindowMs ?? 60 * 1000));
+  const refillWindowMs = Math.max(
+    1,
+    Math.floor(options.refillWindowMs ?? 60 * 1000),
+  );
   const refillRatePerMs = capacity / refillWindowMs;
   const buckets = new Map<string, TokenBucketState>();
 
@@ -207,7 +219,7 @@ export function createPerUserTokenBucketLimiter(
     const key =
       typeof overrideKey === "string" && overrideKey.trim().length > 0
         ? overrideKey
-        : getAuthenticatedUserKey(req) ?? `ip:${getClientIp(req)}`;
+        : (getAuthenticatedUserKey(req) ?? `ip:${getClientIp(req)}`);
 
     const now = Date.now();
     const bucket = buckets.get(key) ?? {
@@ -217,7 +229,10 @@ export function createPerUserTokenBucketLimiter(
 
     if (bucket.lastRefillAt < now) {
       const elapsedMs = now - bucket.lastRefillAt;
-      bucket.tokens = Math.min(capacity, bucket.tokens + elapsedMs * refillRatePerMs);
+      bucket.tokens = Math.min(
+        capacity,
+        bucket.tokens + elapsedMs * refillRatePerMs,
+      );
       bucket.lastRefillAt = now;
     }
 
@@ -232,7 +247,10 @@ export function createPerUserTokenBucketLimiter(
       res.setHeader("Retry-After", String(retryAfter));
       res.setHeader("RateLimit-Limit", String(capacity));
       res.setHeader("RateLimit-Remaining", "0");
-      res.setHeader("RateLimit-Reset", String(Math.ceil((now + msUntilNextToken) / 1000)));
+      res.setHeader(
+        "RateLimit-Reset",
+        String(Math.ceil((now + msUntilNextToken) / 1000)),
+      );
 
       const context = attachTokenBucketContext(req, 0, capacity, resetAt, true);
       void createAuditLog({
@@ -265,14 +283,19 @@ export function createPerUserTokenBucketLimiter(
 
     res.setHeader("RateLimit-Limit", String(capacity));
     res.setHeader("RateLimit-Remaining", String(remaining));
-    res.setHeader("RateLimit-Reset", String(Math.ceil((now + msUntilNextToken) / 1000)));
+    res.setHeader(
+      "RateLimit-Reset",
+      String(Math.ceil((now + msUntilNextToken) / 1000)),
+    );
 
     attachTokenBucketContext(req, remaining, capacity, resetAt, false);
     next();
   }) as RateLimitRequestHandler;
 }
 
-export function createPerUserRateLimiter(options: Partial<Options> = {}): RateLimitRequestHandler {
+export function createPerUserRateLimiter(
+  options: Partial<Options> = {},
+): RateLimitRequestHandler {
   return createRateLimiter({
     windowMs: 60 * 1000,
     limit: 60,
@@ -302,7 +325,7 @@ export function createUserRateLimiter(options: Partial<Options> = {}): RateLimit
  * Reads `WEBHOOKS_RATE_LIMIT_WINDOW_MS` and `WEBHOOKS_RATE_LIMIT_MAX` from
  * the environment; defaults to 100 requests per 15 minutes per user.
  */
-export const webhooksRateLimiter = createUserRateLimiter({
+export const webhooksRateLimiter = createPerUserRateLimiter({
   windowMs: env.WEBHOOKS_RATE_LIMIT_WINDOW_MS,
   limit: env.WEBHOOKS_RATE_LIMIT_MAX,
 });

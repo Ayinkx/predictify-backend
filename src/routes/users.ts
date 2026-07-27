@@ -38,6 +38,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import {
   getUserByAddress,
   getUserPredictions,
@@ -54,6 +55,7 @@ import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
+import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { RouteErrorFactory } from "../errors";
 import { requestTimeout } from "../middleware/timeout";
 import { usersMetricsMiddleware } from "../metrics/usersMetrics";
@@ -101,6 +103,7 @@ usersRouter.use(usersMetricsMiddleware);
 // ---------------------------------------------------------------------------
 // GET /api/users
 // ---------------------------------------------------------------------------
+
 /**
  * Returns a cursor-paginated list of all registered users, sorted newest-first
  * (DESC createdAt, DESC id).  The composite sort key `(createdAt, id)` is
@@ -126,43 +129,93 @@ usersRouter.use(usersMetricsMiddleware);
  * Errors:
  *   400 validation_error — query params fail the zod schema
  */
-usersRouter.get("/", usersRateLimit, async (req: Request, res: Response, next: NextFunction) => {
-  const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
-  const reqId = correlationId;
+usersRouter.get(
+  "/",
+  usersRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const reqId = getRequestId();
 
-  try {
-    const queryParse = listUsersQuerySchema.safeParse(req.query);
-    if (!queryParse.success) {
-      logger.warn({ reqId, correlationId, issues: queryParse.error.issues }, "users_list_invalid_query");
-      return res.status(400).json({
-        error: {
-          code: "validation_error",
-          message: queryParse.error.issues[0]?.message ?? "invalid query parameters",
-          requestId: reqId,
-        },
+    try {
+      const querySchema = z.object({
+        cursor: z.string().optional(),
+        limit: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .default(DEFAULT_PAGE_SIZE),
       });
+
+      const queryParse = querySchema.safeParse(req.query);
+      if (!queryParse.success) {
+        logger.warn(
+          { reqId, issues: queryParse.error.issues },
+          "users_list_invalid_query",
+        );
+        return res.status(400).json({
+          error: {
+            code: "validation_error",
+            message:
+              queryParse.error.issues[0]?.message ?? "invalid query parameters",
+            requestId: reqId,
+          },
+        });
+      }
+
+      const { cursor, limit: rawLimit } = queryParse.data;
+      const limit = clampLimit(rawLimit);
+
+      logger.debug({ reqId, limit, hasCursor: !!cursor }, "users_list_request");
+
+      const page = await listUsers({ cursor, limit });
+
+      logger.info(
+        { reqId, count: page.data.length, hasNext: !!page.nextCursor },
+        "users_list_served",
+      );
+
+      return res.json({ data: page.data, nextCursor: page.nextCursor });
+    } catch (e) {
+      return next(e);
     }
+  },
+);
 
-    const { cursor, limit: rawLimit } = queryParse.data;
-    const limit = clampLimit(rawLimit);
+usersRouter.get(
+  "/me",
+  requireAuthForbidden,
+  usersRateLimit,
+  async (req: AuthenticatedRequest, res, next) => {
+    const correlationId =
+      (res.locals.correlationId as string | undefined) ?? getRequestId();
+    try {
+      const userId = req.user!.id;
+      const result = await getCurrentUserProfile(userId);
 
-    logger.debug({ reqId, correlationId, limit, hasCursor: !!cursor }, "users_list_request");
+      if (!result.ok) {
+        throw result.error;
+      }
 
-    const page = await listUsers({ cursor, limit });
+      const profile = result.value;
+      logger.info(
+        {
+          correlationId,
+          userId,
+          stellarAddress: profile.stellarAddress,
+          ...profile.totals,
+        },
+        "user_me_profile_loaded",
+      );
 
-    logger.info(
-      { reqId, correlationId, count: page.data.length, hasNext: !!page.nextCursor },
-      "users_list_served",
-    );
-
-    // Strong ETag on the page payload; 304 if client already has it.
-    const responsePayload = { data: page.data, nextCursor: page.nextCursor };
-    if (conditionalGet(responsePayload, req, res)) return;
-    return res.json(responsePayload);
-  } catch (e) {
-    return next(e);
-  }
-});
+      // Strong ETag on the profile payload; 304 if client already has it.
+      const responsePayload = { data: profile };
+      if (conditionalGet(responsePayload, req, res)) return;
+      return res.json(responsePayload);
+    } catch (e) {
+      return next(e);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // GET /api/users/me
@@ -237,7 +290,8 @@ usersRouter.get(
   usersRateLimit,
   async (req: Request, res: Response, next: NextFunction) => {
     // Prefer the access-log correlation ID; fall back to ALS for non-route callers.
-    const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
+    const correlationId =
+      (res.locals.correlationId as string | undefined) ?? getRequestId();
     const reqId = correlationId;
 
     try {
@@ -245,13 +299,19 @@ usersRouter.get(
       const paramsParse = userPredictionsParamsSchema.safeParse(req.params);
       if (!paramsParse.success) {
         logger.warn(
-          { correlationId, reqId, address: req.params.address, issues: paramsParse.error.issues },
+          {
+            correlationId,
+            reqId,
+            address: req.params.address,
+            issues: paramsParse.error.issues,
+          },
           "predictions_invalid_address",
         );
         return res.status(400).json({
           error: {
             code: "invalid_address",
-            message: paramsParse.error.issues[0]?.message ?? "invalid stellar address",
+            message:
+              paramsParse.error.issues[0]?.message ?? "invalid stellar address",
             requestId: reqId,
           },
         });
@@ -285,7 +345,8 @@ usersRouter.get(
         return res.status(400).json({
           error: {
             code: "validation_error",
-            message: queryParse.error.issues[0]?.message ?? "invalid query parameters",
+            message:
+              queryParse.error.issues[0]?.message ?? "invalid query parameters",
             requestId: reqId,
           },
         });
@@ -302,8 +363,13 @@ usersRouter.get(
 
       const user = await getUserByAddress(address);
       if (!user) {
-        logger.debug({ correlationId, reqId, address }, "predictions_user_not_found");
-        return res.status(404).json({ error: { code: "not_found", requestId: reqId } });
+        logger.debug(
+          { correlationId, reqId, address },
+          "predictions_user_not_found",
+        );
+        return res
+          .status(404)
+          .json({ error: { code: "not_found", requestId: reqId } });
       }
 
       const page = await getUserPredictions(user.id, { status, limit, cursor });
@@ -337,7 +403,8 @@ usersRouter.get(
   "/:stellarAddress/profile",
   usersRateLimit,
   async (req, res, next) => {
-    const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
+    const correlationId =
+      (res.locals.correlationId as string | undefined) ?? getRequestId();
     const reqId = correlationId;
 
     const parseResult = userProfileParamsSchema.safeParse(req.params);
@@ -362,13 +429,21 @@ usersRouter.get(
     const { stellarAddress } = parseResult.data;
 
     try {
-      logger.debug({ correlationId, reqId, stellarAddress }, "user_profile_lookup");
+      logger.debug(
+        { correlationId, reqId, stellarAddress },
+        "user_profile_lookup",
+      );
 
       const profile = await getCurrentUserProfile(stellarAddress);
 
       if (!profile) {
-        logger.debug({ correlationId, reqId, stellarAddress }, "user_profile_not_found");
-        return next(RouteErrorFactory.notFound("no user found with that stellar address"));
+        logger.debug(
+          { correlationId, reqId, stellarAddress },
+          "user_profile_not_found",
+        );
+        return next(
+          RouteErrorFactory.notFound("no user found with that stellar address"),
+        );
       }
 
       logger.debug(
