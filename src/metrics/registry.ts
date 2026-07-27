@@ -32,6 +32,12 @@ export const indexerPollsTotal = new Counter({
   registers: [register],
 });
 
+export const indexerLagLedgers = new Gauge({
+  name: "indexer_lag_ledgers",
+  help: "Current lag in ledgers between the indexer cursor and the chain tip",
+  registers: [register],
+});
+
 export const webhookDeliveriesTotal = new Counter({
   name: "webhook_deliveries_total",
   help: "Total number of webhook deliveries, segmented by outcome status (success, failed)",

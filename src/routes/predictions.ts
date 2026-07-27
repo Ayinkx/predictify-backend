@@ -1,16 +1,13 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { accessLog } from "../middleware/accessLog";
 import { requireAuth } from "../middleware/requireAuth";
-import { accessLog } from "../middleware/accessLog";
 import { createPerUserRateLimiter } from "../middleware/rateLimit";
-import { accessLog } from "../middleware/accessLog";
 import { getPredictionExplanation } from "../services/predictionExplainService";
 import cancelRouter from "./predictions/cancel";
 import { createShareRouter } from "./predictions/share";
 import { listPredictions } from "../repositories/predictionRepo";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
-import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
+import { clampLimit } from "../utils/cursor";
 import {
   predictionsListTotal,
   predictionExplainTotal,
@@ -19,7 +16,7 @@ import {
 import { clampLimit } from "../utils/cursor";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { listPredictionsQuerySchema } from "../validators/predictions";
-import { accessLog } from "../middleware/accessLog";
+import { requestTimeout } from "../middleware/timeout";
 
 export const predictionsRouter = Router();
 

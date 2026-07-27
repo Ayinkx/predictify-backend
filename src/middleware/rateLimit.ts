@@ -24,7 +24,6 @@ import rateLimit, { type Options, type RateLimitRequestHandler } from "express-r
 import type { NextFunction, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { createAuditLog, type RateLimitContext } from "../services/auditService";
-import { logger } from "../config/logger";
 import { env } from "../config/env";
 
 declare global {
@@ -277,6 +276,22 @@ export function createPerUserRateLimiter(options: Partial<Options> = {}): RateLi
   return createRateLimiter({
     windowMs: 60 * 1000,
     limit: 60,
+    ...options,
+  });
+}
+
+export function createUserRateLimiter(options: Partial<Options> = {}): RateLimitRequestHandler {
+  return createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    keyGenerator: (req) => {
+      const authReq = req as AuthenticatedRequest;
+      const address = authReq.user?.address ?? authReq.user?.sub;
+      if (typeof address === "string" && address.trim().length > 0) {
+        return `user:${address}`;
+      }
+      return `ip:${getClientIp(req)}`;
+    },
     ...options,
   });
 }

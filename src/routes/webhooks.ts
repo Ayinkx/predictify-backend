@@ -26,67 +26,21 @@ import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
 import { webhookCors } from "../middleware/cors";
 import { requireAdmin } from "../middleware/requireAdmin";
-import { webhooksMetricsMiddleware } from "../metrics/webhooksMetrics";
-import type { WebhookDelivery, WebhookStore } from "../services/webhookStore";
-import { listWebhooksQuerySchema } from "../validators/webhooks";
 
 // ---------------------------------------------------------------------------
 // Zod schemas — boundary validation
 // ---------------------------------------------------------------------------
 
-function serializeDelivery(row: WebhookDelivery) {
-  return {
-    id: row.id,
-    url: row.url,
-    events: row.events as readonly string[],
-    active: row.active,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
-  // Enforce CORS allowlist before admin auth so unapproved origins are
-  // rejected early without leaking auth challenge details.
-  router.use(webhookCors());
-  router.use(requireAdmin);
+export const webhooksRouter = Router();
 
-  router.get("/", async (req, res, next) => {
-    const endTimer = webhookRequestDuration.startTimer({
-      route: "/api/webhooks",
-    });
-
-    res.on("finish", () => {
-      endTimer();
-    });
-
-    const requestId = getRequestId();
-
-    try {
-      const parseResult = listWebhooksQuerySchema.safeParse(req.query);
-      if (!parseResult.success) {
-        const issue = parseResult.error.issues[0];
-        logger.warn(
-          {
-            event: "webhooks_list_validation_failed",
-            requestId,
-            adminAddress: req.adminAddress,
-            issues: parseResult.error.issues,
-          },
-          "Webhook list: invalid query parameters",
-        );
-        res.status(400).json({
-          error: {
-            code: "validation_error",
-            message: issue?.message ?? "invalid query parameters",
-            requestId,
-          },
-        });
-        return;
-      }
+// Enforce CORS allowlist before admin auth so unapproved origins are
+// rejected early without leaking auth challenge details.
+webhooksRouter.use(webhookCors());
+webhooksRouter.use(requireAdmin);
 
 webhooksRouter.get("/", async (req, res, next) => {
   const reqId = getRequestId();

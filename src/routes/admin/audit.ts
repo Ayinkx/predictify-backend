@@ -4,7 +4,6 @@ import { z } from "zod";
 import { requireAdmin } from "../../middleware/requireAdmin";
 import { getAuditLogs } from "../../repositories/auditLogRepo";
 import { RouteErrorFactory } from "../../errors";
-import { startAuditSpan, endAuditSpan, recordErrorOnSpan } from "../../otel/spans";
 import { searchAuditLogsHandler } from "./audit/search";
 
 export interface AdminAuditRouterOptions {

@@ -5,7 +5,7 @@
  */
 
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
-import { db, getDb } from "../db/client";
+import { getDb } from "../db/client";
 import { markets, marketWatchers, users } from "../db/schema";
 import { NotFoundError } from "../errors";
 import { clampLimit, decodeCursor, encodeCursor, type Page } from "../utils/cursor";
