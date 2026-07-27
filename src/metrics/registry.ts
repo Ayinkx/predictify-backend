@@ -32,6 +32,12 @@ export const indexerPollsTotal = new Counter({
   registers: [register],
 });
 
+export const indexerLagLedgers = new Gauge({
+  name: "indexer_lag_ledgers",
+  help: "Current lag in ledgers between the indexer cursor and the chain tip",
+  registers: [register],
+});
+
 export const webhookDeliveriesTotal = new Counter({
   name: "webhook_deliveries_total",
   help: "Total number of webhook deliveries, segmented by outcome status (success, failed)",
@@ -101,6 +107,21 @@ export const webhooksEndpointRequestsTotal = new Counter({
 export const webhooksEndpointDuration = new Histogram({
   name: "webhooks_endpoint_duration_seconds",
   help: "Request duration in seconds for /api/webhooks endpoints, segmented by method, route, and status",
+  labelNames: ["method", "route", "status"] as const,
+  buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
+  registers: [register],
+});
+
+export const usersEndpointRequestsTotal = new Counter({
+  name: "users_endpoint_requests_total",
+  help: "Total number of requests to /api/users endpoints, segmented by method, route, and status",
+  labelNames: ["method", "route", "status"] as const,
+  registers: [register],
+});
+
+export const usersEndpointDuration = new Histogram({
+  name: "users_endpoint_duration_seconds",
+  help: "Request duration in seconds for /api/users endpoints, segmented by method, route, and status",
   labelNames: ["method", "route", "status"] as const,
   buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
   registers: [register],

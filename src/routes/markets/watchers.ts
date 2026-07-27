@@ -15,7 +15,7 @@
 
 import { Router } from "express";
 import { logger } from "../../config/logger";
-import { NotFoundError, RouteErrorFactory } from "../../errors";
+import { NotFoundError } from "../../errors";
 import { getRequestId } from "../../lib/requestContext";
 import { AuthenticatedRequest, requireAuth } from "../../middleware/auth";
 import {

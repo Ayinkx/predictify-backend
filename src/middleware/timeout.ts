@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { logger } from "../config/logger";
 
 export interface RequestTimeoutOptions {
   /** HTTP status code to send when the timeout is exceeded. Defaults to 408. */

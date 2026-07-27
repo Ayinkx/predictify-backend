@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 import request from "supertest";
 import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import { subscriptionsRouter } from "../../routes/subscriptions";
 import { db } from "../../db/client";
 import { generateETag } from "../../middleware/etag";
 
 jest.mock("../../middleware/requireAdmin", () => ({
-  requireAdmin: (req: any, res: any, next: any) => next(),
+  requireAdmin: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
 jest.mock("../../db/client", () => {
@@ -79,7 +80,7 @@ describe("Subscriptions Routes", () => {
     it("should handle db errors", async () => {
       (db.from as jest.Mock).mockRejectedValueOnce(new Error("Database error"));
       // Mute the express default error handler output in tests
-      app.use((err: any, req: any, res: any, next: any) => {
+      app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
         res.status(500).json({ error: "Internal Error" });
       });
 

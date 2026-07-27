@@ -1,5 +1,4 @@
 import { Router } from "express";
-import type { Request, Response, NextFunction } from "express";
 import {
   listMarkets,
   listUpcomingMarkets,
@@ -9,15 +8,12 @@ import {
 } from "../../services/marketService";
 import { searchMarkets } from "../../repositories/marketRepository";
 import { requireAdmin, AuthenticatedRequest } from "../../middleware/auth";
-import { createPerUserRateLimiter } from "../../middleware/rateLimit";
 import { rateLimitAnon } from "../../middleware/rateLimitAnon";
 import { accessLog } from "../../middleware/accessLog";
 import { listFeaturedMarkets } from "../../services/marketFeatureService";
 import { logger } from "../../config/logger";
-import { accessLog } from "../../middleware/accessLog";
 import { RouteErrorFactory } from "../../errors";
 import { conditionalGet } from "../../middleware/etag";
-import { marketsRequestDuration, marketsRequestsTotal } from "../../metrics/registry";
 import { recommendationsRouter } from "./recommendations";
 import { trendingRouter } from "./trending";
 import { tagsRouter } from "./tags";

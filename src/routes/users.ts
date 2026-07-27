@@ -35,10 +35,11 @@ import { getUserByAddress, getUserPredictions, getCurrentUserProfile, getUserPro
 import { requireAuthForbidden } from "../middleware/requireAuth";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { accessLog } from "../middleware/accessLog";
+import { createPerUserRateLimiter } from "../middleware/rateLimit";
 import { conditionalGet } from "../middleware/etag";
 import { logger } from "../config/logger";
 import { getRequestId } from "../lib/requestContext";
-import { clampLimit } from "../utils/cursor";
+import { clampLimit, DEFAULT_PAGE_SIZE } from "../utils/cursor";
 import { RouteErrorFactory } from "../errors";
 import { requestTimeout } from "../middleware/timeout";
 import { usersMetricsMiddleware } from "../metrics/usersMetrics";
@@ -49,11 +50,6 @@ import {
 } from "../validators/users";
 
 export const usersRouter = Router();
-
-/** Zod schema for a valid Stellar public key (56-char G… address). */
-const stellarAddressSchema = z
-  .string()
-  .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar address");
 
 /**
  * Shared /api/users limiter. Authenticated requests (req.user set) use
@@ -86,16 +82,6 @@ usersRouter.use(requestTimeout(15000)); // 15 seconds timeout
 // Per-endpoint Prometheus metrics for /api/users
 // ---------------------------------------------------------------------------
 usersRouter.use(usersMetricsMiddleware);
-
-// ---------------------------------------------------------------------------
-// GET /api/users/me
-// ---------------------------------------------------------------------------
-usersRouter.get(
-  "/me",
-  requireAuthForbidden,
-  usersRateLimit,
-  async (req: AuthenticatedRequest, res, next) => {
-  const correlationId = res.locals.correlationId as string;
 
 /**
  * GET /api/users
@@ -160,6 +146,7 @@ usersRouter.get("/", async (req: Request, res: Response, next: NextFunction) => 
 });
 
 usersRouter.get("/me", requireAuthForbidden, async (req: AuthenticatedRequest, res, next) => {
+  const correlationId = (res.locals.correlationId as string | undefined) ?? getRequestId();
   try {
     const userId = req.user!.id;
     const result = await getCurrentUserProfile(userId);
